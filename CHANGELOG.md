@@ -7,16 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-01-06
+
 ### Changed
-- Migrated Langfuse MCP server to use the Langfuse 3.x Python SDK, replacing deprecated v2 fetch_* helpers with the `langfuse.api.*` resource clients.
-- Updated test doubles and unit tests to model the v3 API surface and ensure compatibility going forward.
-- MCP CLI now reads Langfuse credentials (`public_key`, `secret_key`, `host`) from a `.env` file or environment variables by default, keeping CLI flags optional.
-- Normalized output mode handling, tool envelopes, and logging configuration; added CLI options for log level/console output and standardized responses across all tools.
-- Docker image installs the local repository (`pip install .`) so containers run the same code under development instead of the last PyPI release, and now bundles `git` so dynamic versioning works during image builds.
-- README now documents how to execute the working tree with `uv run --from /path/to/langfuse-mcp`, clarifies why Docker builds should come from the local checkout, and shows how to install the repository version with `uv pip install --editable .`.
+- **BREAKING**: Migrated to Langfuse SDK v3.x (requires `langfuse>=3.0.0`)
+- **BREAKING**: Tool responses now use envelope format `{"data": ..., "metadata": {...}}`
+- Updated test doubles and unit tests to model the v3 API surface and ensure compatibility going forward
+- MCP CLI now reads Langfuse credentials (`public_key`, `secret_key`, `host`) from a `.env` file or environment variables by default, keeping CLI flags optional
+- Normalized output mode handling, tool envelopes, and logging configuration; added CLI options for log level/console output and standardized responses across all tools
+- Docker image installs the local repository (`pip install .`) so containers run the same code under development instead of the last PyPI release, and now bundles `git` so dynamic versioning works during image builds
+- README now documents how to execute the working tree with `uv run --from /path/to/langfuse-mcp`, clarifies why Docker builds should come from the local checkout, and shows how to install the repository version with `uv pip install --editable .`
+
+### Added
+- Docker support with Dockerfile for containerized deployments
+- Environment variable support for credentials via `.env` files
+- Enhanced logging configuration with `--log-level` and `--log-to-console` flags
+- Pagination metadata in API responses
 
 ### Removed
-- Dropped the temporary Langfuse v2 pin in favour of depending on `langfuse>=3.0.0`.
+- Dropped Langfuse v2 SDK support (now requires v3)
 
 ## [0.1.8] - 2025-01-05
 
