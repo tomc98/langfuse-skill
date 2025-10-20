@@ -5,6 +5,7 @@ agents to query trace data, observations, and exceptions from Langfuse.
 """
 
 import argparse
+import inspect
 import json
 import logging
 import os
@@ -22,6 +23,13 @@ from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 
 from cachetools import LRUCache
+
+if sys.version_info >= (3, 14):
+    raise SystemExit(
+        "langfuse-mcp currently requires Python 3.13 or earlier. "
+        "Please rerun with `uvx --python 3.13 langfuse-mcp` or pin a supported interpreter."
+    )
+
 from langfuse import Langfuse
 from mcp.server.fastmcp import Context, FastMCP
 from pydantic import AfterValidator, BaseModel, Field
@@ -2269,16 +2277,21 @@ def app_factory(public_key: str, secret_key: str, host: str, cache_size: int = 1
             AsyncIterator yielding MCPState
         """
         # Initialize state
+        init_params = inspect.signature(Langfuse.__init__).parameters
+        langfuse_kwargs = {
+            "public_key": public_key,
+            "secret_key": secret_key,
+            "host": host,
+            "debug": False,  # Disable debug mode since we're only querying
+            "flush_at": 0,  # Disable automatic flushing since we're not sending data
+            "flush_interval": None,  # Disable flush interval for pull-only usage
+        }
+
+        if "tracing_enabled" in init_params:
+            langfuse_kwargs["tracing_enabled"] = False  # type: ignore[assignment]
+
         state = MCPState(
-            langfuse_client=Langfuse(
-                public_key=public_key,
-                secret_key=secret_key,
-                host=host,
-                debug=False,  # Disable debug mode since we're only querying
-                tracing_enabled=False,  # Disable instrumentation since we're querying data only
-                flush_at=0,  # Disable automatic flushing since we're not sending data
-                flush_interval=None,  # Disable flush interval for pull-only usage
-            ),
+            langfuse_client=Langfuse(**langfuse_kwargs),
             observation_cache=LRUCache(maxsize=cache_size),
             file_to_observations_map=LRUCache(maxsize=cache_size),
             exception_type_map=LRUCache(maxsize=cache_size),

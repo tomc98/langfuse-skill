@@ -2,7 +2,7 @@
 
 [![Test](https://github.com/avivsinai/langfuse-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/avivsinai/langfuse-mcp/actions/workflows/test.yml)
 [![PyPI version](https://badge.fury.io/py/langfuse-mcp.svg)](https://badge.fury.io/py/langfuse-mcp)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10-3.13](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 This project provides a Model Context Protocol (MCP) server for Langfuse, allowing AI agents to query Langfuse trace data for better debugging and observability.
@@ -60,7 +60,7 @@ If you already have an older version of `uv` installed, you might need to update
 
 ### Installation
 
-> **Requirement**: The server now depends on the Langfuse Python SDK v3. Installations automatically pull `langfuse>=3.0.0`.
+> **Requirement**: The server now depends on the Langfuse Python SDK v3. Installations automatically pull `langfuse>=3.0.0` and require Python 3.10–3.13 while upstream SDK support for 3.14 is pending.
 
 ```bash
 uv pip install langfuse-mcp
@@ -257,7 +257,7 @@ For a detailed history of changes, please see the [CHANGELOG.md](CHANGELOG.md) f
 
 ## Langfuse 3.x migration notes
 
-- The MCP server now uses the Langfuse Python SDK v3 resource clients (`langfuse.api.trace.list`, `langfuse.api.observations.get_many`, etc.).
+- The MCP server now uses the Langfuse Python SDK v3 resource clients (`langfuse.api.trace.list`, `langfuse.api.observations.get_many`, etc.) and must currently run on Python 3.10–3.13 because the upstream SDK still relies on Pydantic v1 internals.
 - Unit tests use a v3-style fake client that fails if legacy `fetch_*` helpers are invoked, helping catch regressions early.
 - Tool responses now include pagination metadata when the Langfuse API returns cursors, while retaining the existing MCP interface.
 - Diagnostic logs continue to stream to `/tmp/langfuse_mcp.log`; this is useful when verifying the upgraded integration against a live Langfuse deployment.

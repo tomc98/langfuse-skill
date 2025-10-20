@@ -18,7 +18,7 @@ description = "Langfuse MCP server for accessing and analyzing telemetry data vi
 authors = [
     {name = "Aviv Sinai", email = "avivsinai@gmail.com"}
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 readme = "README.md"
 license = {text = "MIT"}
 classifiers = [
@@ -26,6 +26,9 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
