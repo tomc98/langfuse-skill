@@ -14,7 +14,7 @@ from collections import Counter
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from functools import lru_cache
 from importlib.metadata import PackageNotFoundError, version
@@ -23,13 +23,6 @@ from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 
 from cachetools import LRUCache
-
-if sys.version_info >= (3, 14):
-    raise SystemExit(
-        "langfuse-mcp currently requires Python 3.13 or earlier. "
-        "Please rerun with `uvx --python 3.13 langfuse-mcp` or pin a supported interpreter."
-    )
-
 from langfuse import Langfuse
 from mcp.server.fastmcp import Context, FastMCP
 from pydantic import AfterValidator, BaseModel, Field
@@ -764,7 +757,7 @@ def save_full_data_to_file(data: Any, base_filename_prefix: str, state: "MCPStat
         safe_prefix = "langfuse_data"
 
     # Generate a unique filename with timestamp
-    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S_%f")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
     filename = f"{safe_prefix}_{timestamp}.json"
     filepath = os.path.join(state.dump_dir, filename)
 
@@ -1085,7 +1078,7 @@ async def fetch_traces(
     state = cast(MCPState, ctx.request_context.lifespan_context)
 
     # Calculate timestamps from age
-    from_timestamp = datetime.now(UTC) - timedelta(minutes=age)
+    from_timestamp = datetime.now(timezone.utc) - timedelta(minutes=age)
 
     try:
         # Process tags if it's a comma-separated string
@@ -1289,7 +1282,7 @@ async def fetch_observations(
     age = validate_age(age)
 
     # Calculate timestamps from age
-    from_start_time = datetime.now(UTC) - timedelta(minutes=age)
+    from_start_time = datetime.now(timezone.utc) - timedelta(minutes=age)
     metadata = None  # Metadata filtering not currently exposed for this tool
 
     try:
@@ -1431,7 +1424,7 @@ async def fetch_sessions(
     age = validate_age(age)
 
     # Calculate timestamps from age
-    from_timestamp = datetime.now(UTC) - timedelta(minutes=age)
+    from_timestamp = datetime.now(timezone.utc) - timedelta(minutes=age)
 
     try:
         session_items, pagination = _list_sessions(
@@ -1522,7 +1515,7 @@ async def get_session_details(
             page=1,
             include_observations=include_observations,
             tags=None,
-            from_timestamp=datetime.fromtimestamp(0, tz=UTC),
+            from_timestamp=datetime.fromtimestamp(0, tz=timezone.utc),
             name=None,
             user_id=None,
             session_id=session_id,
@@ -1636,7 +1629,7 @@ async def get_user_sessions(
     age = validate_age(age)
 
     # Calculate timestamp from age
-    from_timestamp = datetime.now(UTC) - timedelta(minutes=age)
+    from_timestamp = datetime.now(timezone.utc) - timedelta(minutes=age)
 
     try:
         mode = _ensure_output_mode(output_mode)
@@ -1757,8 +1750,8 @@ async def find_exceptions(
     age = validate_age(age)
 
     # Calculate from_timestamp based on age
-    from_timestamp = datetime.now(UTC) - timedelta(minutes=age)
-    to_timestamp = datetime.now(UTC)
+    from_timestamp = datetime.now(timezone.utc) - timedelta(minutes=age)
+    to_timestamp = datetime.now(timezone.utc)
 
     try:
         # Fetch all SPAN observations since they may contain exceptions
@@ -1855,8 +1848,8 @@ async def find_exceptions_in_file(
     age = validate_age(age)
 
     # Calculate from_timestamp based on age
-    from_timestamp = datetime.now(UTC) - timedelta(minutes=age)
-    to_timestamp = datetime.now(UTC)
+    from_timestamp = datetime.now(timezone.utc) - timedelta(minutes=age)
+    to_timestamp = datetime.now(timezone.utc)
 
     try:
         # Fetch all SPAN observations since they may contain exceptions
@@ -1986,7 +1979,7 @@ async def get_exception_details(
             state.langfuse_client,
             limit=100,
             page=1,
-            from_start_time=datetime.fromtimestamp(0, tz=UTC),
+            from_start_time=datetime.fromtimestamp(0, tz=timezone.utc),
             to_start_time=None,
             obs_type=None,
             name=None,
@@ -2096,8 +2089,8 @@ async def get_error_count(
     age = validate_age(age)
 
     # Calculate from_timestamp based on age
-    from_timestamp = datetime.now(UTC) - timedelta(minutes=age)
-    to_timestamp = datetime.now(UTC)
+    from_timestamp = datetime.now(timezone.utc) - timedelta(minutes=age)
+    to_timestamp = datetime.now(timezone.utc)
 
     try:
         # Fetch all SPAN observations since they may contain exceptions
