@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-01-13
+
+### Fixed
+- **Python 3.14 incompatibility**: Blocked Python 3.14 in `requires-python` constraint. The Langfuse SDK uses Pydantic v1 internally which [doesn't support Python 3.14](https://github.com/langfuse/langfuse/issues/9618). Will re-enable once Langfuse migrates to Pydantic v2.
+
 ## [0.3.2] - 2026-01-13
 
 ### Fixed

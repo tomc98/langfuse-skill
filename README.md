@@ -2,7 +2,7 @@
 
 [![Test](https://github.com/avivsinai/langfuse-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/avivsinai/langfuse-mcp/actions/workflows/test.yml)
 [![PyPI version](https://badge.fury.io/py/langfuse-mcp.svg)](https://badge.fury.io/py/langfuse-mcp)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%E2%80%933.14-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A comprehensive [Model Context Protocol](https://modelcontextprotocol.io) server for [Langfuse](https://langfuse.com) observability. Provides **18 tools** for AI agents to query traces, debug errors, analyze sessions, and manage prompts.
