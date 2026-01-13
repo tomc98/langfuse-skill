@@ -208,10 +208,17 @@ def _load_env_file(env_path: Path | None = None) -> None:
 
 def _read_env_defaults() -> dict[str, Any]:
     """Read environment defaults used by the CLI."""
+    # Parse timeout with fallback to our default of 30s (SDK defaults to 5s which is too aggressive)
+    timeout_str = os.getenv("LANGFUSE_TIMEOUT", "30")
+    try:
+        timeout = int(timeout_str)
+    except ValueError:
+        timeout = 30
     return {
         "public_key": os.getenv("LANGFUSE_PUBLIC_KEY"),
         "secret_key": os.getenv("LANGFUSE_SECRET_KEY"),
         "host": os.getenv("LANGFUSE_HOST") or "https://cloud.langfuse.com",
+        "timeout": timeout,
         "log_level": os.getenv("LANGFUSE_LOG_LEVEL", "INFO"),
         "log_to_console": os.getenv("LANGFUSE_LOG_TO_CONSOLE", "").lower() in {"1", "true", "yes"},
     }
@@ -235,6 +242,12 @@ def _build_arg_parser(env_defaults: dict[str, Any]) -> argparse.ArgumentParser:
         help="Langfuse secret key",
     )
     parser.add_argument("--host", type=str, default=env_defaults["host"], help="Langfuse host URL")
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=env_defaults["timeout"],
+        help="API timeout in seconds (default: 30). SDK defaults to 5s which is too aggressive. Set via LANGFUSE_TIMEOUT.",
+    )
     parser.add_argument("--cache-size", type=int, default=100, help="Size of LRU caches used for caching data")
     parser.add_argument(
         "--dump-dir",
@@ -2780,6 +2793,7 @@ def app_factory(
     cache_size: int = 100,
     dump_dir: str = None,
     enabled_tools: set[str] | None = None,
+    timeout: int = 30,
 ) -> FastMCP:
     """Create a FastMCP server with Langfuse tools.
 
@@ -2790,6 +2804,7 @@ def app_factory(
         cache_size: Size of LRU caches
         dump_dir: Directory for full_json_file output mode
         enabled_tools: Tool groups to enable (default: all). Options: traces, observations, sessions, exceptions, prompts, schema
+        timeout: API request timeout in seconds (default: 30). The Langfuse SDK defaults to 5s which is too aggressive.
     """
     if enabled_tools is None:
         enabled_tools = ALL_TOOL_GROUPS
@@ -2805,6 +2820,7 @@ def app_factory(
             "public_key": public_key,
             "secret_key": secret_key,
             "host": host,
+            "timeout": timeout,
             "debug": False,
             "flush_at": 0,
             "flush_interval": None,
@@ -2904,7 +2920,7 @@ def main():
             logger.warning("No valid tool groups provided; defaulting to all tools.")
             enabled_tools = ALL_TOOL_GROUPS
 
-    logger.info(f"Starting MCP - host:{args.host} cache:{args.cache_size} tools:{sorted(enabled_tools)}")
+    logger.info(f"Starting MCP - host:{args.host} timeout:{args.timeout}s cache:{args.cache_size} tools:{sorted(enabled_tools)}")
     app = app_factory(
         public_key=args.public_key,
         secret_key=args.secret_key,
@@ -2912,6 +2928,7 @@ def main():
         cache_size=args.cache_size,
         dump_dir=args.dump_dir,
         enabled_tools=enabled_tools,
+        timeout=args.timeout,
     )
 
     app.run(transport="stdio")

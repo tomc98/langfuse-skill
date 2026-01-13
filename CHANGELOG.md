@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-01-13
+
+### Fixed
+- **Timeout configuration**: The Langfuse SDK defaults to an aggressive 5-second timeout which caused `ReadTimeout` errors when Langfuse cloud experiences latency. The MCP server now defaults to **30 seconds** and supports `--timeout` CLI flag and `LANGFUSE_TIMEOUT` environment variable for customization.
+
 ## [0.3.0] - 2026-01-06
 
 ### Added

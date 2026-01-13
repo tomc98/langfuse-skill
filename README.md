@@ -229,6 +229,20 @@ export LANGFUSE_MCP_LOG_FILE=/var/log/langfuse_mcp.log
 
 Default log location: `/tmp/langfuse_mcp.log`
 
+### Timeout Configuration
+
+The Langfuse Python SDK defaults to a 5-second API timeout, which can be too aggressive for cloud APIs experiencing latency. This MCP server uses a more reasonable default of **30 seconds**.
+
+```bash
+# Set via CLI
+langfuse-mcp --timeout 60
+
+# Or via environment variable
+export LANGFUSE_TIMEOUT=60
+```
+
+If you experience timeout errors, try increasing the timeout value. The Langfuse cloud API occasionally experiences latency spikes.
+
 ## Development
 
 ```bash
