@@ -1,5 +1,6 @@
 """Integration tests for langfuse-mcp package using MCP client."""
 
+import asyncio
 import json
 import logging
 import sys
@@ -37,10 +38,12 @@ async def graceful_stdio_client(server_params):
         async with stdio_client(server_params) as transport:
             yield transport
     except BaseException as e:
-        if _is_connection_closed_error(e):
-            logger.debug("Ignoring connection closed during cleanup")
-        else:
+        if isinstance(e, (KeyboardInterrupt, SystemExit, asyncio.CancelledError)):
             raise
+        if _is_connection_closed_error(e):
+            logger.warning("Ignoring connection closed during cleanup: %s", e)
+            return
+        raise
 
 
 async def run_get_schema_test():

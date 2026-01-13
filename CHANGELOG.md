@@ -6,9 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.3.4] - 2026-01-13
 
 ### Changed
 - Added prominent warning in README Quick Start for Python 3.14 users with workaround (`uvx --python 3.11`)
+
+### Fixed
+- Aligned CI Python matrix with supported versions (3.10–3.13).
+- Restored an early Python 3.14 runtime guard and made Langfuse `timeout` param optional based on SDK support.
+- Made integration test teardown tolerant of connection-closed cleanup without hiding real errors.
 
 ## [0.3.3] - 2026-01-13
 
