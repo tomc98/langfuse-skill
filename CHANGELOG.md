@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Added prominent warning in README Quick Start for Python 3.14 users with workaround (`uvx --python 3.11`)
+
 ## [0.3.3] - 2026-01-13
 
 ### Fixed

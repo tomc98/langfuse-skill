@@ -21,6 +21,8 @@ export LANGFUSE_HOST=https://cloud.langfuse.com
 uvx langfuse-mcp
 ```
 
+> **⚠️ Python 3.14 users:** The Langfuse SDK [doesn't support Python 3.14 yet](https://github.com/langfuse/langfuse/issues/9618) (Pydantic v1 dependency). Use `uvx --python 3.11 langfuse-mcp` or any Python 3.10–3.13.
+
 ## Why langfuse-mcp?
 
 | | langfuse-mcp | Official Langfuse MCP |
