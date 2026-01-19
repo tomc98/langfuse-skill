@@ -6,19 +6,36 @@
 
 [Model Context Protocol](https://modelcontextprotocol.io) server for [Langfuse](https://langfuse.com) observability. Query traces, debug errors, analyze sessions, manage prompts.
 
+## Why langfuse-mcp?
+
+Comparison with [official Langfuse MCP](https://github.com/langfuse/mcp-server-langfuse) (as of Jan 2026):
+
+| | langfuse-mcp | Official |
+|-|--------------|----------|
+| **Traces & Observations** | Yes | No |
+| **Sessions & Users** | Yes | No |
+| **Exception Tracking** | Yes | No |
+| **Prompt Management** | Yes | Yes |
+| **Selective Tool Loading** | Yes | No |
+
+This project provides a **full observability toolkit** — traces, observations, sessions, exceptions, and prompts — while the official MCP focuses on prompt management.
+
 ## Quick Start
 
-Get credentials from [Langfuse Cloud](https://cloud.langfuse.com) → Settings → API Keys.
+Requires [uv](https://docs.astral.sh/uv/getting-started/installation/) (for `uvx`).
+
+Get credentials from [Langfuse Cloud](https://cloud.langfuse.com) → Settings → API Keys. If self-hosted, use your instance URL for `LANGFUSE_HOST`.
 
 ```bash
-# Claude Code
-claude mcp add langfuse -s project \
-  -e LANGFUSE_PUBLIC_KEY=pk-... \
-  -e LANGFUSE_SECRET_KEY=sk-... \
-  -e LANGFUSE_HOST=https://cloud.langfuse.com \
-  -- uvx --python 3.11 langfuse-mcp
+# Claude Code (project-scoped, shared via .mcp.json)
+claude mcp add \
+  --scope project \
+  --env LANGFUSE_PUBLIC_KEY=pk-... \
+  --env LANGFUSE_SECRET_KEY=sk-... \
+  --env LANGFUSE_HOST=https://cloud.langfuse.com \
+  langfuse -- uvx --python 3.11 langfuse-mcp
 
-# Codex CLI
+# Codex CLI (user-scoped, stored in ~/.codex/config.toml)
 codex mcp add langfuse \
   --env LANGFUSE_PUBLIC_KEY=pk-... \
   --env LANGFUSE_SECRET_KEY=sk-... \
@@ -28,7 +45,7 @@ codex mcp add langfuse \
 
 Restart your CLI, then verify with `/mcp` (Claude Code) or `codex mcp list` (Codex).
 
-## Tools
+## Tools (18 total)
 
 | Category | Tools |
 |----------|-------|
@@ -36,7 +53,8 @@ Restart your CLI, then verify with `/mcp` (Claude Code) or `codex mcp list` (Cod
 | Observations | `fetch_observations`, `fetch_observation` |
 | Sessions | `fetch_sessions`, `get_session_details`, `get_user_sessions` |
 | Exceptions | `find_exceptions`, `find_exceptions_in_file`, `get_exception_details`, `get_error_count` |
-| Prompts | `list_prompts`, `get_prompt`, `create_text_prompt`, `create_chat_prompt`, `update_prompt_labels` |
+| Prompts | `list_prompts`, `get_prompt`, `get_prompt_unresolved`, `create_text_prompt`, `create_chat_prompt`, `update_prompt_labels` |
+| Schema | `get_data_schema` |
 
 ## Skill
 
@@ -47,9 +65,19 @@ cp -r skills/langfuse ~/.claude/skills/   # Claude Code
 cp -r skills/langfuse ~/.codex/skills/    # Codex CLI
 ```
 
-Then say "help me debug langfuse traces" to activate.
+Try asking: "help me debug langfuse traces"
 
 See [`skills/langfuse/SKILL.md`](skills/langfuse/SKILL.md) for full documentation.
+
+## Selective Tool Loading
+
+Load only the tool groups you need to reduce token overhead:
+
+```bash
+langfuse-mcp --tools traces,prompts
+```
+
+Available groups: `traces`, `observations`, `sessions`, `exceptions`, `prompts`, `schema`
 
 ## Other Clients
 

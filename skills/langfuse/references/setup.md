@@ -61,12 +61,13 @@ uvx --python 3.11 langfuse-mcp --help
 Increase the timeout:
 
 ```bash
-# CLI add with timeout
-claude mcp add langfuse -s project \
-  -e LANGFUSE_PUBLIC_KEY=pk-... \
-  -e LANGFUSE_SECRET_KEY=sk-... \
-  -e LANGFUSE_HOST=https://cloud.langfuse.com \
-  -- uvx --python 3.11 langfuse-mcp --timeout 60
+# Claude Code with timeout
+claude mcp add \
+  --scope project \
+  --env LANGFUSE_PUBLIC_KEY=pk-... \
+  --env LANGFUSE_SECRET_KEY=sk-... \
+  --env LANGFUSE_HOST=https://cloud.langfuse.com \
+  langfuse -- uvx --python 3.11 langfuse-mcp --timeout 60
 
 # Or in .mcp.json
 "args": ["--python", "3.11", "langfuse-mcp", "--timeout", "60"]

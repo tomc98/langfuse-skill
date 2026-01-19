@@ -21,14 +21,15 @@ If self-hosted, use your instance URL for `LANGFUSE_HOST` and create keys there.
 **Step 2:** Install MCP (pick one):
 
 ```bash
-# Claude Code
-claude mcp add langfuse -s project \
-  -e LANGFUSE_PUBLIC_KEY=pk-... \
-  -e LANGFUSE_SECRET_KEY=sk-... \
-  -e LANGFUSE_HOST=https://cloud.langfuse.com \
-  -- uvx --python 3.11 langfuse-mcp
+# Claude Code (project-scoped, shared via .mcp.json)
+claude mcp add \
+  --scope project \
+  --env LANGFUSE_PUBLIC_KEY=pk-... \
+  --env LANGFUSE_SECRET_KEY=sk-... \
+  --env LANGFUSE_HOST=https://cloud.langfuse.com \
+  langfuse -- uvx --python 3.11 langfuse-mcp
 
-# Codex CLI
+# Codex CLI (user-scoped, stored in ~/.codex/config.toml)
 codex mcp add langfuse \
   --env LANGFUSE_PUBLIC_KEY=pk-... \
   --env LANGFUSE_SECRET_KEY=sk-... \
