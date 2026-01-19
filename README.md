@@ -58,8 +58,21 @@ Restart your CLI, then verify with `/mcp` (Claude Code) or `codex mcp list` (Cod
 
 ## Skill
 
-This project includes a skill with debugging playbooks. Install globally:
+This project includes a skill with debugging playbooks.
 
+**Claude Code:**
+```
+/plugin marketplace add avivsinai/skills-marketplace
+/plugin install langfuse@avivsinai-marketplace
+```
+
+**Codex CLI:**
+```
+$skill-installer install https://github.com/avivsinai/langfuse-mcp/tree/main/skills/langfuse
+```
+Then restart Codex.
+
+**Manual install** (both):
 ```bash
 cp -r skills/langfuse ~/.claude/skills/   # Claude Code
 cp -r skills/langfuse ~/.codex/skills/    # Codex CLI
