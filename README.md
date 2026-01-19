@@ -94,10 +94,10 @@ Available groups: `traces`, `observations`, `sessions`, `exceptions`, `prompts`,
 
 ## Other Clients
 
-<details>
-<summary>Cursor, Docker</summary>
+### Cursor
 
-**Cursor** — Create `.cursor/mcp.json`:
+Create `.cursor/mcp.json` in your project (or `~/.cursor/mcp.json` for global):
+
 ```json
 {
   "mcpServers": {
@@ -114,7 +114,8 @@ Available groups: `traces`, `observations`, `sessions`, `exceptions`, `prompts`,
 }
 ```
 
-**Docker**:
+### Docker
+
 ```bash
 docker run --rm -i \
   -e LANGFUSE_PUBLIC_KEY=pk-... \
@@ -122,8 +123,6 @@ docker run --rm -i \
   -e LANGFUSE_HOST=https://cloud.langfuse.com \
   ghcr.io/avivsinai/langfuse-mcp:latest
 ```
-
-</details>
 
 ## Development
 
