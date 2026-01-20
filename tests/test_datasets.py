@@ -8,7 +8,6 @@ import pytest
 
 from tests.fakes import FakeContext, FakeLangfuse
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Tool Registration Test
 # ─────────────────────────────────────────────────────────────────────────────
