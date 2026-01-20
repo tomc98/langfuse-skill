@@ -16,6 +16,7 @@ Comparison with [official Langfuse MCP](https://github.com/langfuse/mcp-server-l
 | **Sessions & Users** | Yes | No |
 | **Exception Tracking** | Yes | No |
 | **Prompt Management** | Yes | Yes |
+| **Dataset Management** | Yes | No |
 | **Selective Tool Loading** | Yes | No |
 
 This project provides a **full observability toolkit** — traces, observations, sessions, exceptions, and prompts — while the official MCP focuses on prompt management.
@@ -45,7 +46,7 @@ codex mcp add langfuse \
 
 Restart your CLI, then verify with `/mcp` (Claude Code) or `codex mcp list` (Codex).
 
-## Tools (18 total)
+## Tools (25 total)
 
 | Category | Tools |
 |----------|-------|
@@ -54,6 +55,7 @@ Restart your CLI, then verify with `/mcp` (Claude Code) or `codex mcp list` (Cod
 | Sessions | `fetch_sessions`, `get_session_details`, `get_user_sessions` |
 | Exceptions | `find_exceptions`, `find_exceptions_in_file`, `get_exception_details`, `get_error_count` |
 | Prompts | `list_prompts`, `get_prompt`, `get_prompt_unresolved`, `create_text_prompt`, `create_chat_prompt`, `update_prompt_labels` |
+| Datasets | `list_datasets`, `get_dataset`, `list_dataset_items`, `get_dataset_item`, `create_dataset`, `create_dataset_item`, `delete_dataset_item` |
 | Schema | `get_data_schema` |
 
 ## Skill
@@ -90,7 +92,19 @@ Load only the tool groups you need to reduce token overhead:
 langfuse-mcp --tools traces,prompts
 ```
 
-Available groups: `traces`, `observations`, `sessions`, `exceptions`, `prompts`, `schema`
+Available groups: `traces`, `observations`, `sessions`, `exceptions`, `prompts`, `datasets`, `schema`
+
+## Read-Only Mode
+
+Disable all write operations for safer read-only access:
+
+```bash
+langfuse-mcp --read-only
+# Or via environment variable
+LANGFUSE_MCP_READ_ONLY=true langfuse-mcp
+```
+
+This disables: `create_text_prompt`, `create_chat_prompt`, `update_prompt_labels`, `create_dataset`, `create_dataset_item`, `delete_dataset_item`
 
 ## Other Clients
 

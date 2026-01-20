@@ -46,6 +46,35 @@ class FakeSession:
 
 
 @dataclass
+class FakeDataset:
+    """Dataset record returned by the fake SDK."""
+
+    id: str
+    name: str
+    description: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    project_id: str = "project_1"
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+@dataclass
+class FakeDatasetItem:
+    """Dataset item record returned by the fake SDK."""
+
+    id: str
+    dataset_id: str
+    input: Any = None
+    expected_output: Any = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    source_trace_id: str | None = None
+    source_observation_id: str | None = None
+    status: str = "ACTIVE"
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+@dataclass
 class FakePromptBase:
     """Base prompt record used by fake prompt APIs."""
 
@@ -81,6 +110,16 @@ class FakePaginatedResponse:
 
     data: list[Any]
     meta: dict[str, Any]
+
+    @property
+    def items(self) -> list[Any]:
+        """Alias for data to match SDK response format."""
+        return self.data
+
+    @property
+    def total(self) -> int | None:
+        """Extract total from meta to match SDK response format."""
+        return self.meta.get("total")
 
 
 class _TraceAPI:
@@ -223,6 +262,139 @@ class _PromptsAPI:
         return versions[-1]
 
 
+class _DatasetsAPI:
+    """Fake implementation of datasets resource client."""
+
+    def __init__(self, store: FakeDataStore) -> None:
+        self._store = store
+        self.last_list_kwargs: dict[str, Any] | None = None
+        self.last_get_kwargs: dict[str, Any] | None = None
+        self.last_create_kwargs: dict[str, Any] | None = None
+
+    def list(self, **kwargs: Any) -> FakePaginatedResponse:
+        self.last_list_kwargs = kwargs
+        page = kwargs.get("page", 1)
+        limit = kwargs.get("limit", 50)
+
+        datasets = [ds.__dict__ for ds in self._store.datasets.values()]
+        total = len(datasets)
+        start = (page - 1) * limit
+        end = start + limit
+        paged = datasets[start:end]
+        return FakePaginatedResponse(data=paged, meta={"next_page": None, "total": total})
+
+    def get(self, dataset_name: str, **kwargs: Any) -> Any:
+        self.last_get_kwargs = {"dataset_name": dataset_name, **kwargs}
+        dataset = self._store.datasets.get(dataset_name)
+        return dataset if dataset else None
+
+    def create(self, *, request: Any, **kwargs: Any) -> FakeDataset:
+        self.last_create_kwargs = {"request": request, **kwargs}
+        now = datetime.now(timezone.utc)
+        name = request.name if hasattr(request, "name") else request.get("name")
+        description = getattr(request, "description", None) or request.get("description")
+        metadata = getattr(request, "metadata", None) or request.get("metadata", {})
+
+        dataset = FakeDataset(
+            id=f"dataset_{name}",
+            name=name,
+            description=description,
+            metadata=metadata or {},
+            created_at=now,
+            updated_at=now,
+        )
+        self._store.datasets[name] = dataset
+        return dataset
+
+
+class _DatasetItemsAPI:
+    """Fake implementation of dataset_items resource client."""
+
+    def __init__(self, store: FakeDataStore) -> None:
+        self._store = store
+        self.last_list_kwargs: dict[str, Any] | None = None
+        self.last_get_kwargs: dict[str, Any] | None = None
+        self.last_create_kwargs: dict[str, Any] | None = None
+        self.last_delete_kwargs: dict[str, Any] | None = None
+
+    def list(self, **kwargs: Any) -> FakePaginatedResponse:
+        self.last_list_kwargs = kwargs
+        dataset_name = kwargs.get("dataset_name")
+        source_trace_id = kwargs.get("source_trace_id")
+        source_observation_id = kwargs.get("source_observation_id")
+        page = kwargs.get("page", 1)
+        limit = kwargs.get("limit", 50)
+
+        items = []
+        for item in self._store.dataset_items.values():
+            # Filter by dataset_name (via dataset_id lookup)
+            if dataset_name:
+                dataset = self._store.datasets.get(dataset_name)
+                if not dataset or item.dataset_id != dataset.id:
+                    continue
+            if source_trace_id and item.source_trace_id != source_trace_id:
+                continue
+            if source_observation_id and item.source_observation_id != source_observation_id:
+                continue
+            items.append(item.__dict__)
+
+        total = len(items)
+        start = (page - 1) * limit
+        end = start + limit
+        paged = items[start:end]
+        return FakePaginatedResponse(data=paged, meta={"next_page": None, "total": total})
+
+    def get(self, id: str, **kwargs: Any) -> Any:
+        self.last_get_kwargs = {"id": id, **kwargs}
+        item = self._store.dataset_items.get(id)
+        return item if item else None
+
+    def create(self, *, request: Any, **kwargs: Any) -> FakeDatasetItem:
+        self.last_create_kwargs = {"request": request, **kwargs}
+        now = datetime.now(timezone.utc)
+
+        # Extract fields from request object or dict
+        dataset_name = getattr(request, "dataset_name", None) or request.get("dataset_name")
+        item_id = getattr(request, "id", None) or request.get("id")
+        input_data = getattr(request, "input", None) or request.get("input")
+        expected_output = getattr(request, "expected_output", None) or request.get("expected_output")
+        metadata = getattr(request, "metadata", None) or request.get("metadata", {})
+        source_trace_id = getattr(request, "source_trace_id", None) or request.get("source_trace_id")
+        source_observation_id = getattr(request, "source_observation_id", None) or request.get("source_observation_id")
+        status = getattr(request, "status", None) or request.get("status", "ACTIVE")
+        if hasattr(status, "value"):
+            status = status.value
+
+        # Get dataset_id from dataset_name
+        dataset = self._store.datasets.get(dataset_name)
+        dataset_id = dataset.id if dataset else f"dataset_{dataset_name}"
+
+        # Generate ID if not provided
+        if not item_id:
+            item_id = f"item_{len(self._store.dataset_items) + 1}"
+
+        item = FakeDatasetItem(
+            id=item_id,
+            dataset_id=dataset_id,
+            input=input_data,
+            expected_output=expected_output,
+            metadata=metadata or {},
+            source_trace_id=source_trace_id,
+            source_observation_id=source_observation_id,
+            status=status,
+            created_at=now,
+            updated_at=now,
+        )
+        self._store.dataset_items[item_id] = item
+        return item
+
+    def delete(self, id: str, **kwargs: Any) -> dict[str, Any]:
+        self.last_delete_kwargs = {"id": id, **kwargs}
+        if id in self._store.dataset_items:
+            del self._store.dataset_items[id]
+        return {"success": True}
+
+
 class FakeAPI:
     """Aggregate object exposed via FakeLangfuse.api."""
 
@@ -232,6 +404,8 @@ class FakeAPI:
         self.observations = _ObservationsAPI(store)
         self.sessions = _SessionsAPI(store)
         self.prompts = _PromptsAPI(store)
+        self.datasets = _DatasetsAPI(store)
+        self.dataset_items = _DatasetItemsAPI(store)
 
 
 class FakeDataStore:
@@ -273,6 +447,8 @@ class FakeDataStore:
             )
         }
         self.prompts: dict[str, list[FakePromptBase]] = {}
+        self.datasets: dict[str, FakeDataset] = {}
+        self.dataset_items: dict[str, FakeDatasetItem] = {}
 
 
 class FakeLangfuse:
@@ -385,6 +561,65 @@ class FakeLangfuse:
                     return prompt
             return None
         return versions[-1]
+
+    def create_dataset(
+        self,
+        *,
+        name: str,
+        description: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> FakeDataset:
+        """Create a fake dataset and return it."""
+        now = datetime.now(timezone.utc)
+        dataset = FakeDataset(
+            id=f"dataset_{name}",
+            name=name,
+            description=description,
+            metadata=metadata or {},
+            created_at=now,
+            updated_at=now,
+        )
+        self._store.datasets[name] = dataset
+        return dataset
+
+    def create_dataset_item(
+        self,
+        *,
+        dataset_name: str,
+        input: Any = None,
+        expected_output: Any = None,
+        metadata: dict[str, Any] | None = None,
+        source_trace_id: str | None = None,
+        source_observation_id: str | None = None,
+        id: str | None = None,
+        status: str | None = None,
+        **kwargs: Any,
+    ) -> FakeDatasetItem:
+        """Create a fake dataset item and return it."""
+        now = datetime.now(timezone.utc)
+        dataset = self._store.datasets.get(dataset_name)
+        dataset_id = dataset.id if dataset else f"dataset_{dataset_name}"
+        item_id = id or f"item_{len(self._store.dataset_items) + 1}"
+
+        item = FakeDatasetItem(
+            id=item_id,
+            dataset_id=dataset_id,
+            input=input,
+            expected_output=expected_output,
+            metadata=metadata or {},
+            source_trace_id=source_trace_id,
+            source_observation_id=source_observation_id,
+            status=status or "ACTIVE",
+            created_at=now,
+            updated_at=now,
+        )
+        self._store.dataset_items[item_id] = item
+        return item
+
+    def get_dataset(self, name: str, **kwargs: Any) -> FakeDataset | None:
+        """Fetch a dataset by name."""
+        return self._store.datasets.get(name)
 
     def close(self) -> None:
         """Mark the fake client as closed to mirror the real SDK."""

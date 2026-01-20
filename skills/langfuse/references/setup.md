@@ -145,6 +145,7 @@ langfuse-mcp --tools traces,prompts
 | `LANGFUSE_TIMEOUT` | API timeout in seconds (default: 30) |
 | `LANGFUSE_MCP_TOOLS` | Comma-separated tool groups to load |
 | `LANGFUSE_MCP_LOG_FILE` | Log file path (default: `/tmp/langfuse_mcp.log`) |
+| `LANGFUSE_MCP_READ_ONLY` | Set to `true` to disable write tools (safer observability mode) |
 
 ---
 

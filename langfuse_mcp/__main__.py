@@ -100,8 +100,27 @@ TOOL_GROUPS = {
     "exceptions": ["find_exceptions", "find_exceptions_in_file", "get_exception_details", "get_error_count"],
     "prompts": ["get_prompt", "get_prompt_unresolved", "list_prompts", "create_text_prompt", "create_chat_prompt", "update_prompt_labels"],
     "schema": ["get_data_schema"],
+    "datasets": [
+        "list_datasets",
+        "get_dataset",
+        "list_dataset_items",
+        "get_dataset_item",
+        "create_dataset",
+        "create_dataset_item",
+        "delete_dataset_item",
+    ],
 }
 ALL_TOOL_GROUPS = set(TOOL_GROUPS.keys())
+
+# Tools that perform write operations (disabled in read-only mode)
+WRITE_TOOLS = {
+    "create_text_prompt",
+    "create_chat_prompt",
+    "update_prompt_labels",
+    "create_dataset",
+    "create_dataset_item",
+    "delete_dataset_item",
+}
 
 # Common field names that often contain large values
 LARGE_FIELDS = [
@@ -138,6 +157,11 @@ LARGE_FIELDS = [
     "attributes.prompt",
     "attributes.input",
     "attributes.output",
+    # Dataset-specific fields
+    "expected_output",
+    "expectedOutput",
+    "input_schema",
+    "expected_output_schema",
 ]
 
 LOWER_LARGE_FIELDS = {field.lower() for field in LARGE_FIELDS}
@@ -287,9 +311,15 @@ def _build_arg_parser(env_defaults: dict[str, Any]) -> argparse.ArgumentParser:
         type=str,
         default=os.getenv("LANGFUSE_MCP_TOOLS", "all"),
         help=(
-            "Comma-separated tool groups to enable: traces,observations,sessions,exceptions,prompts,schema "
+            "Comma-separated tool groups to enable: traces,observations,sessions,exceptions,prompts,datasets,schema "
             "or 'all' (default). Reduces token overhead when only specific capabilities needed."
         ),
+    )
+    parser.add_argument(
+        "--read-only",
+        action="store_true",
+        default=os.getenv("LANGFUSE_MCP_READ_ONLY", "").lower() in ("1", "true", "yes"),
+        help="Disable all write operations (create/update/delete tools). Safer for read-only access.",
     )
 
     return parser
@@ -2792,6 +2822,454 @@ async def update_prompt_labels(
         raise
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Dataset Tools
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+async def list_datasets(
+    ctx: Context,
+    page: int = Field(1, ge=1, description="Page number for pagination (starts at 1)"),
+    limit: int = Field(50, ge=1, le=100, description="Items per page (max 100)"),
+) -> ResponseDict:
+    """List all datasets in the project with pagination.
+
+    Returns metadata about datasets including name, description, item count, and timestamps.
+
+    Args:
+        ctx: Context object containing lifespan context with Langfuse client
+        page: Page number for pagination (starts at 1)
+        limit: Maximum items per page (max 100)
+
+    Returns:
+        A dictionary containing:
+        - data: List of dataset metadata objects
+        - metadata: Pagination info (page, limit, total)
+    """
+    state = cast(MCPState, ctx.request_context.lifespan_context)
+
+    try:
+        # Normalize pagination fields that may be FieldInfo when called directly
+        page = _normalize_field_default(page) or 1
+        limit = _normalize_field_default(limit) or 50
+
+        response = state.langfuse_client.api.datasets.list(page=page, limit=limit)
+
+        items, pagination = _extract_items_from_response(response)
+        raw_datasets = [_sdk_object_to_python(d) for d in items]
+
+        dataset_list = []
+        for d in raw_datasets:
+            dataset_list.append(
+                {
+                    "id": d.get("id"),
+                    "name": d.get("name"),
+                    "description": d.get("description"),
+                    "metadata": d.get("metadata"),
+                    "projectId": d.get("projectId") or d.get("project_id"),
+                    "createdAt": d.get("createdAt") or d.get("created_at"),
+                    "updatedAt": d.get("updatedAt") or d.get("updated_at"),
+                }
+            )
+
+        logger.info(f"Listed {len(dataset_list)} datasets (page={page}, limit={limit})")
+
+        return {
+            "data": dataset_list,
+            "metadata": {
+                "page": page,
+                "limit": limit,
+                "item_count": len(dataset_list),
+                "total": pagination.get("total"),
+            },
+        }
+
+    except Exception as e:
+        logger.error(f"Error listing datasets: {e}")
+        raise
+
+
+async def get_dataset(
+    ctx: Context,
+    name: str = Field(..., description="The name of the dataset to fetch"),
+) -> ResponseDict:
+    """Get a specific dataset by name.
+
+    Retrieves dataset details including metadata and item count.
+
+    Args:
+        ctx: Context object containing lifespan context with Langfuse client
+        name: The name of the dataset to fetch
+
+    Returns:
+        A dictionary containing dataset details:
+        - id: Unique dataset identifier
+        - name: Dataset name
+        - description: Dataset description
+        - metadata: Custom metadata
+        - items: List of dataset items (if included by the API)
+        - runs: List of dataset runs (if included by the API)
+    """
+    state = cast(MCPState, ctx.request_context.lifespan_context)
+
+    try:
+        dataset = state.langfuse_client.api.datasets.get(dataset_name=name)
+
+        if dataset is None:
+            raise LookupError(f"Dataset '{name}' not found")
+
+        result = _sdk_object_to_python(dataset)
+
+        logger.info(f"Fetched dataset '{name}'")
+
+        return {
+            "data": result,
+            "metadata": {"name": name},
+        }
+
+    except Exception as e:
+        logger.error(f"Error fetching dataset '{name}': {e}")
+        raise
+
+
+async def list_dataset_items(
+    ctx: Context,
+    dataset_name: str = Field(..., description="The name of the dataset to list items from"),
+    source_trace_id: str | None = Field(None, description="Filter by source trace ID"),
+    source_observation_id: str | None = Field(None, description="Filter by source observation ID"),
+    page: int = Field(1, ge=1, description="Page number for pagination (starts at 1)"),
+    limit: int = Field(50, ge=1, le=100, description="Items per page (max 100)"),
+    output_mode: OUTPUT_MODE_LITERAL = Field(
+        "compact",
+        description="Output format: 'compact' truncates, 'full_json_string' returns full data, 'full_json_file' writes to file",
+    ),
+) -> ResponseDict | str:
+    """List items in a dataset with pagination and optional filtering.
+
+    Returns dataset items with their input, expected output, and metadata.
+
+    Args:
+        ctx: Context object containing lifespan context with Langfuse client
+        dataset_name: The name of the dataset to list items from
+        source_trace_id: Optional filter by source trace ID
+        source_observation_id: Optional filter by source observation ID
+        page: Page number for pagination (starts at 1)
+        limit: Maximum items per page (max 100)
+        output_mode: How to format the response data
+
+    Returns:
+        A dictionary containing:
+        - data: List of dataset item objects
+        - metadata: Pagination info (page, limit, total, dataset_name)
+    """
+    state = cast(MCPState, ctx.request_context.lifespan_context)
+
+    try:
+        # Normalize optional fields that may be FieldInfo when called directly
+        source_trace_id = _normalize_field_default(source_trace_id)
+        source_observation_id = _normalize_field_default(source_observation_id)
+        page = _normalize_field_default(page) or 1
+        limit = _normalize_field_default(limit) or 50
+
+        api_kwargs: dict[str, Any] = {
+            "dataset_name": dataset_name,
+            "page": page,
+            "limit": limit,
+        }
+        if source_trace_id:
+            api_kwargs["source_trace_id"] = source_trace_id
+        if source_observation_id:
+            api_kwargs["source_observation_id"] = source_observation_id
+
+        response = state.langfuse_client.api.dataset_items.list(**api_kwargs)
+
+        items, pagination = _extract_items_from_response(response)
+        raw_items = [_sdk_object_to_python(item) for item in items]
+
+        mode = _ensure_output_mode(output_mode)
+        processed_items, file_meta = process_data_with_mode(raw_items, mode, f"dataset_items_{dataset_name}", state)
+
+        logger.info(f"Listed {len(raw_items)} items from dataset '{dataset_name}' (page={page}, limit={limit})")
+
+        if mode == OutputMode.FULL_JSON_STRING:
+            return processed_items
+
+        metadata_block = {
+            "dataset_name": dataset_name,
+            "page": page,
+            "limit": limit,
+            "item_count": len(raw_items),
+            "total": pagination.get("total"),
+            "output_mode": mode.value,
+        }
+        if file_meta:
+            metadata_block.update(file_meta)
+
+        return {
+            "data": processed_items,
+            "metadata": metadata_block,
+        }
+
+    except Exception as e:
+        logger.error(f"Error listing items from dataset '{dataset_name}': {e}")
+        raise
+
+
+async def get_dataset_item(
+    ctx: Context,
+    item_id: str = Field(..., description="The ID of the dataset item to fetch"),
+    output_mode: OUTPUT_MODE_LITERAL = Field(
+        "compact",
+        description="Output format: 'compact' truncates, 'full_json_string' returns full data, 'full_json_file' writes to file",
+    ),
+) -> ResponseDict | str:
+    """Get a specific dataset item by ID.
+
+    Retrieves the full dataset item including input, expected output, metadata, and linked traces.
+
+    Args:
+        ctx: Context object containing lifespan context with Langfuse client
+        item_id: The ID of the dataset item to fetch
+        output_mode: How to format the response data
+
+    Returns:
+        A dictionary containing the dataset item details:
+        - id: Unique item identifier
+        - datasetId: Parent dataset ID
+        - input: Input data for the item
+        - expectedOutput: Expected output data
+        - metadata: Custom metadata
+        - sourceTraceId: Linked trace ID (if any)
+        - sourceObservationId: Linked observation ID (if any)
+        - status: Item status (ACTIVE or ARCHIVED)
+    """
+    state = cast(MCPState, ctx.request_context.lifespan_context)
+
+    try:
+        item = state.langfuse_client.api.dataset_items.get(id=item_id)
+
+        if item is None:
+            raise LookupError(f"Dataset item '{item_id}' not found")
+
+        result = _sdk_object_to_python(item)
+
+        mode = _ensure_output_mode(output_mode)
+        processed_result, file_meta = process_data_with_mode(result, mode, f"dataset_item_{item_id}", state)
+
+        logger.info(f"Fetched dataset item '{item_id}'")
+
+        if mode == OutputMode.FULL_JSON_STRING:
+            return processed_result
+
+        metadata_block = {"item_id": item_id, "output_mode": mode.value}
+        if file_meta:
+            metadata_block.update(file_meta)
+
+        return {
+            "data": processed_result,
+            "metadata": metadata_block,
+        }
+
+    except Exception as e:
+        logger.error(f"Error fetching dataset item '{item_id}': {e}")
+        raise
+
+
+async def create_dataset(
+    ctx: Context,
+    name: str = Field(..., description="Name for the new dataset (must be unique in project)"),
+    description: str | None = Field(None, description="Optional description of the dataset"),
+    metadata: dict[str, Any] | None = Field(None, description="Optional custom metadata as key-value pairs"),
+) -> ResponseDict:
+    """Create a new dataset in the project.
+
+    Datasets are used to store evaluation test cases with input/expected output pairs.
+
+    Args:
+        ctx: Context object containing lifespan context with Langfuse client
+        name: Name for the new dataset (must be unique)
+        description: Optional description
+        metadata: Optional custom metadata
+
+    Returns:
+        A dictionary containing the created dataset details:
+        - id: Unique dataset identifier
+        - name: Dataset name
+        - description: Dataset description
+        - metadata: Custom metadata
+        - createdAt: Creation timestamp
+    """
+    state = cast(MCPState, ctx.request_context.lifespan_context)
+
+    try:
+        # Normalize optional fields that may be FieldInfo when called directly
+        description = _normalize_field_default(description)
+        metadata = _normalize_field_default(metadata)
+
+        # Use the high-level SDK method if available, otherwise use API directly
+        if hasattr(state.langfuse_client, "create_dataset"):
+            kwargs: dict[str, Any] = {"name": name}
+            if description:
+                kwargs["description"] = description
+            if metadata:
+                kwargs["metadata"] = metadata
+            dataset = state.langfuse_client.create_dataset(**kwargs)
+        else:
+            from langfuse.api.resources.datasets.types.create_dataset_request import CreateDatasetRequest
+
+            request = CreateDatasetRequest(
+                name=name,
+                description=description,
+                metadata=metadata,
+            )
+            dataset = state.langfuse_client.api.datasets.create(request=request)
+
+        result = _sdk_object_to_python(dataset)
+
+        logger.info(f"Created dataset '{name}'")
+
+        return {
+            "data": result,
+            "metadata": {"created": True, "name": name},
+        }
+
+    except Exception as e:
+        logger.error(f"Error creating dataset '{name}': {e}")
+        raise
+
+
+async def create_dataset_item(
+    ctx: Context,
+    dataset_name: str = Field(..., description="Name of the dataset to add the item to"),
+    input: Any = Field(None, description="Input data for the dataset item (any JSON-serializable value)"),
+    expected_output: Any = Field(None, description="Expected output data for evaluation (any JSON-serializable value)"),
+    metadata: dict[str, Any] | None = Field(None, description="Optional custom metadata as key-value pairs"),
+    source_trace_id: str | None = Field(None, description="Optional trace ID to link this item to"),
+    source_observation_id: str | None = Field(None, description="Optional observation ID to link this item to"),
+    item_id: str | None = Field(None, description="Optional custom ID for the item (for upsert behavior)"),
+    status: Literal["ACTIVE", "ARCHIVED"] | None = Field(None, description="Item status (default: ACTIVE)"),
+) -> ResponseDict:
+    """Create a new item in a dataset, or update if item_id already exists.
+
+    Dataset items store input/expected output pairs for evaluation. If item_id is provided
+    and already exists, the item will be updated (upsert behavior).
+
+    Args:
+        ctx: Context object containing lifespan context with Langfuse client
+        dataset_name: Name of the target dataset
+        input: Input data for the item
+        expected_output: Expected output for evaluation
+        metadata: Optional custom metadata
+        source_trace_id: Optional linked trace ID
+        source_observation_id: Optional linked observation ID
+        item_id: Optional custom ID (enables upsert)
+        status: Item status (ACTIVE or ARCHIVED)
+
+    Returns:
+        A dictionary containing the created/updated item details
+    """
+    state = cast(MCPState, ctx.request_context.lifespan_context)
+
+    try:
+        # Normalize optional fields that may be FieldInfo when called directly
+        input = _normalize_field_default(input)
+        expected_output = _normalize_field_default(expected_output)
+        metadata = _normalize_field_default(metadata)
+        source_trace_id = _normalize_field_default(source_trace_id)
+        source_observation_id = _normalize_field_default(source_observation_id)
+        item_id = _normalize_field_default(item_id)
+        status = _normalize_field_default(status)
+
+        # Use the high-level SDK method if available
+        if hasattr(state.langfuse_client, "create_dataset_item"):
+            kwargs: dict[str, Any] = {"dataset_name": dataset_name}
+            if input is not None:
+                kwargs["input"] = input
+            if expected_output is not None:
+                kwargs["expected_output"] = expected_output
+            if metadata:
+                kwargs["metadata"] = metadata
+            if source_trace_id:
+                kwargs["source_trace_id"] = source_trace_id
+            if source_observation_id:
+                kwargs["source_observation_id"] = source_observation_id
+            if item_id:
+                kwargs["id"] = item_id
+            if status:
+                kwargs["status"] = status
+            item = state.langfuse_client.create_dataset_item(**kwargs)
+        else:
+            from langfuse.api.resources.dataset_items.types.create_dataset_item_request import CreateDatasetItemRequest
+
+            request_kwargs: dict[str, Any] = {"dataset_name": dataset_name}
+            if input is not None:
+                request_kwargs["input"] = input
+            if expected_output is not None:
+                request_kwargs["expected_output"] = expected_output
+            if metadata:
+                request_kwargs["metadata"] = metadata
+            if source_trace_id:
+                request_kwargs["source_trace_id"] = source_trace_id
+            if source_observation_id:
+                request_kwargs["source_observation_id"] = source_observation_id
+            if item_id:
+                request_kwargs["id"] = item_id
+            if status:
+                from langfuse.api.resources.commons.types.dataset_status import DatasetStatus
+
+                request_kwargs["status"] = DatasetStatus(status)
+
+            request = CreateDatasetItemRequest(**request_kwargs)
+            item = state.langfuse_client.api.dataset_items.create(request=request)
+
+        result = _sdk_object_to_python(item)
+
+        logger.info(f"Created/updated dataset item in '{dataset_name}' (id={result.get('id')})")
+
+        return {
+            "data": result,
+            "metadata": {"created": True, "dataset_name": dataset_name, "item_id": result.get("id")},
+        }
+
+    except Exception as e:
+        logger.error(f"Error creating dataset item in '{dataset_name}': {e}")
+        raise
+
+
+async def delete_dataset_item(
+    ctx: Context,
+    item_id: str = Field(..., description="The ID of the dataset item to delete"),
+) -> ResponseDict:
+    """Delete a dataset item by ID.
+
+    This is a permanent deletion and cannot be undone.
+
+    Args:
+        ctx: Context object containing lifespan context with Langfuse client
+        item_id: The ID of the dataset item to delete
+
+    Returns:
+        A dictionary confirming the deletion
+    """
+    state = cast(MCPState, ctx.request_context.lifespan_context)
+
+    try:
+        response = state.langfuse_client.api.dataset_items.delete(id=item_id)
+
+        result = _sdk_object_to_python(response) if response else {}
+
+        logger.info(f"Deleted dataset item '{item_id}'")
+
+        return {
+            "data": result,
+            "metadata": {"deleted": True, "item_id": item_id},
+        }
+
+    except Exception as e:
+        logger.error(f"Error deleting dataset item '{item_id}': {e}")
+        raise
+
+
 def app_factory(
     public_key: str,
     secret_key: str,
@@ -2800,6 +3278,7 @@ def app_factory(
     dump_dir: str = None,
     enabled_tools: set[str] | None = None,
     timeout: int = 30,
+    read_only: bool = False,
 ) -> FastMCP:
     """Create a FastMCP server with Langfuse tools.
 
@@ -2809,8 +3288,9 @@ def app_factory(
         host: Langfuse API host URL
         cache_size: Size of LRU caches
         dump_dir: Directory for full_json_file output mode
-        enabled_tools: Tool groups to enable (default: all). Options: traces, observations, sessions, exceptions, prompts, schema
+        enabled_tools: Tool groups to enable (default: all). Options: traces, observations, sessions, exceptions, prompts, datasets, schema
         timeout: API request timeout in seconds (default: 30). The Langfuse SDK defaults to 5s which is too aggressive.
+        read_only: If True, disable all write operations (create/update/delete tools).
     """
     if enabled_tools is None:
         enabled_tools = ALL_TOOL_GROUPS
@@ -2872,17 +3352,31 @@ def app_factory(
         "create_chat_prompt": create_chat_prompt,
         "update_prompt_labels": update_prompt_labels,
         "get_data_schema": get_data_schema,
+        # Dataset tools
+        "list_datasets": list_datasets,
+        "get_dataset": get_dataset,
+        "list_dataset_items": list_dataset_items,
+        "get_dataset_item": get_dataset_item,
+        "create_dataset": create_dataset,
+        "create_dataset_item": create_dataset_item,
+        "delete_dataset_item": delete_dataset_item,
     }
 
-    # Register only enabled tool groups
+    # Register only enabled tool groups (skip write tools in read-only mode)
     registered = []
+    skipped_write = []
     for group in sorted(enabled_tools):
         if group in TOOL_GROUPS:
             for tool_name in TOOL_GROUPS[group]:
                 if tool_name in tool_funcs:
+                    if read_only and tool_name in WRITE_TOOLS:
+                        skipped_write.append(tool_name)
+                        continue
                     mcp.tool()(tool_funcs[tool_name])
                     registered.append(tool_name)
 
+    if read_only and skipped_write:
+        logger.info(f"Read-only mode: skipped {len(skipped_write)} write tools: {sorted(skipped_write)}")
     logger.info(f"Registered {len(registered)} tools from groups: {sorted(enabled_tools)}")
     return mcp
 
@@ -2927,7 +3421,10 @@ def main():
             logger.warning("No valid tool groups provided; defaulting to all tools.")
             enabled_tools = ALL_TOOL_GROUPS
 
-    logger.info(f"Starting MCP - host:{args.host} timeout:{args.timeout}s cache:{args.cache_size} tools:{sorted(enabled_tools)}")
+    logger.info(
+        f"Starting MCP - host:{args.host} timeout:{args.timeout}s cache:{args.cache_size} "
+        f"tools:{sorted(enabled_tools)} read_only:{args.read_only}"
+    )
     app = app_factory(
         public_key=args.public_key,
         secret_key=args.secret_key,
@@ -2936,6 +3433,7 @@ def main():
         dump_dir=args.dump_dir,
         enabled_tools=enabled_tools,
         timeout=args.timeout,
+        read_only=args.read_only,
     )
 
     app.run(transport="stdio")
