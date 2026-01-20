@@ -62,6 +62,12 @@ Restart your CLI, then verify with `/mcp` (Claude Code) or `codex mcp list` (Cod
 
 This project includes a skill with debugging playbooks.
 
+**Via [skild.sh](https://skills.sh)** (cross-platform):
+```bash
+npx skild install langfuse        # installs to detected platform
+npx skild install langfuse --all  # installs to all platforms
+```
+
 **Claude Code:**
 ```
 /plugin marketplace add avivsinai/skills-marketplace
