@@ -1,6 +1,6 @@
 # Langfuse MCP Tool Reference
 
-Complete documentation for all 18 Langfuse MCP tools.
+Complete documentation for all 25 Langfuse MCP tools.
 
 ## Tools by Category
 
@@ -10,8 +10,11 @@ Complete documentation for all 18 Langfuse MCP tools.
 | Observations | fetch_observations, fetch_observation |
 | Sessions | fetch_sessions, get_session_details, get_user_sessions |
 | Exceptions | find_exceptions, find_exceptions_in_file, get_exception_details, get_error_count |
-| Prompts | list_prompts, get_prompt, get_prompt_unresolved, create_text_prompt, create_chat_prompt, update_prompt_labels |
+| Prompts | list_prompts, get_prompt, get_prompt_unresolved, create_text_prompt*, create_chat_prompt*, update_prompt_labels* |
+| Datasets | list_datasets, get_dataset, list_dataset_items, get_dataset_item, create_dataset*, create_dataset_item*, delete_dataset_item* |
 | Schema | get_data_schema |
+
+*\*Tools marked with \* are disabled in read-only mode (`--read-only` or `LANGFUSE_MCP_READ_ONLY=true`).*
 
 ## Output Modes
 
@@ -439,6 +442,153 @@ update_prompt_labels(name="greeting", version=3, labels=["production"])
 **Example (rollback):**
 ```
 update_prompt_labels(name="greeting", version=2, labels=["production"])
+```
+
+---
+
+## Datasets
+
+### list_datasets
+
+List all datasets with pagination.
+
+**Parameters:**
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `page` | int | No | 1 | Page number |
+| `limit` | int | No | 50 | Max items per page |
+
+**Returns:** List of dataset objects with metadata.
+
+**Example:**
+```
+list_datasets(page=1, limit=20)
+```
+
+---
+
+### get_dataset
+
+Get a dataset by name.
+
+**Parameters:**
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `dataset_name` | string | Yes | - | The name of the dataset to fetch |
+
+**Returns:** Dataset object with full details.
+
+**Example:**
+```
+get_dataset(dataset_name="evaluation-set-v1")
+```
+
+---
+
+### list_dataset_items
+
+List items in a dataset with optional filters.
+
+**Parameters:**
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `dataset_name` | string | Yes | - | The name of the dataset |
+| `source_trace_id` | string | No | null | Filter by source trace ID |
+| `source_observation_id` | string | No | null | Filter by source observation ID |
+| `page` | int | No | 1 | Page number |
+| `limit` | int | No | 50 | Max items per page |
+
+**Returns:** List of dataset items.
+
+**Example:**
+```
+list_dataset_items(dataset_name="evaluation-set-v1", page=1, limit=10)
+```
+
+---
+
+### get_dataset_item
+
+Get a specific dataset item by ID.
+
+**Parameters:**
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `dataset_item_id` | string | Yes | - | The ID of the dataset item to fetch |
+
+**Returns:** Dataset item object with full details.
+
+**Example:**
+```
+get_dataset_item(dataset_item_id="item-abc-123")
+```
+
+---
+
+### create_dataset
+
+Create a new dataset.
+
+**Parameters:**
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `name` | string | Yes | - | The name for the new dataset |
+| `description` | string | No | null | Description of the dataset |
+| `metadata` | object | No | null | Additional metadata |
+
+**Returns:** Created dataset object.
+
+**Example:**
+```
+create_dataset(name="qa-evaluation-set", description="QA test cases for v2.0")
+```
+
+---
+
+### create_dataset_item
+
+Create or upsert a dataset item.
+
+**Parameters:**
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `dataset_name` | string | Yes | - | The name of the dataset |
+| `input` | any | Yes | - | Input data for the item |
+| `expected_output` | any | No | null | Expected output for evaluation |
+| `metadata` | object | No | null | Additional metadata |
+| `source_trace_id` | string | No | null | Link to source trace |
+| `source_observation_id` | string | No | null | Link to source observation |
+| `id` | string | No | null | Item ID (for upsert; if exists, updates the item) |
+| `status` | string | No | null | Item status (e.g., "ACTIVE", "ARCHIVED") |
+
+**Returns:** Created or updated dataset item object.
+
+**Example:**
+```
+create_dataset_item(
+  dataset_name="qa-evaluation-set",
+  input={"question": "What is the capital of France?"},
+  expected_output={"answer": "Paris"},
+  metadata={"category": "geography"}
+)
+```
+
+---
+
+### delete_dataset_item
+
+Delete a dataset item.
+
+**Parameters:**
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `dataset_item_id` | string | Yes | - | The ID of the dataset item to delete |
+
+**Returns:** Confirmation of deletion.
+
+**Example:**
+```
+delete_dataset_item(dataset_item_id="item-abc-123")
 ```
 
 ---

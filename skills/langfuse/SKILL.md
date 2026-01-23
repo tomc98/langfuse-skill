@@ -1,5 +1,6 @@
 ---
 name: langfuse
+version: 1.0.0
 description: Debug AI traces, find exceptions, analyze sessions, and manage prompts via Langfuse MCP. Also handles MCP setup and configuration.
 metadata:
   short-description: Langfuse observability via MCP
@@ -40,6 +41,20 @@ codex mcp add langfuse \
 **Step 3:** Restart CLI, verify with `/mcp` (Claude) or `codex mcp list` (Codex)
 
 **Step 4:** Test: `fetch_traces(age=60)`
+
+### Read-Only Mode
+
+For safer observability without risk of modifying prompts or datasets, enable read-only mode:
+
+```bash
+# CLI flag
+langfuse-mcp --read-only
+
+# Or environment variable
+LANGFUSE_MCP_READ_ONLY=true
+```
+
+This disables write tools: `create_text_prompt`, `create_chat_prompt`, `update_prompt_labels`, `create_dataset`, `create_dataset_item`, `delete_dataset_item`.
 
 For manual `.mcp.json` setup or troubleshooting, see `references/setup.md`.
 
