@@ -11,7 +11,7 @@ metadata:
 
 Debug your AI systems through Langfuse observability.
 
-**Triggers:** langfuse, traces, debug AI, find exceptions, set up langfuse, what went wrong, why is it slow
+**Triggers:** langfuse, traces, debug AI, find exceptions, set up langfuse, what went wrong, why is it slow, datasets, evaluation sets
 
 ## Setup
 
@@ -133,6 +133,39 @@ get_session_details(session_id="...")
 
 ---
 
+### "Manage datasets"
+
+```
+list_datasets()
+```
+→ See all datasets.
+
+```
+get_dataset(name="evaluation-set-v1")
+```
+→ Get dataset details.
+
+```
+list_dataset_items(dataset_name="evaluation-set-v1", page=1, limit=10)
+```
+→ Browse items in the dataset.
+
+```
+create_dataset(name="qa-test-cases", description="QA evaluation set")
+```
+→ Create a new dataset.
+
+```
+create_dataset_item(
+  dataset_name="qa-test-cases",
+  input={"question": "What is 2+2?"},
+  expected_output={"answer": "4"}
+)
+```
+→ Add test cases.
+
+---
+
 ### "Manage prompts"
 
 ```
@@ -171,6 +204,9 @@ update_prompt_labels(name="...", version=N, labels=["production"])
 | User sessions | `get_user_sessions(user_id="...", age=N)` |
 | List prompts | `list_prompts()` |
 | Get prompt | `get_prompt(name="...", label="production")` |
+| List datasets | `list_datasets()` |
+| Get dataset | `get_dataset(name="...")` |
+| List dataset items | `list_dataset_items(dataset_name="...", limit=N)` |
 
 `age` = minutes to look back (max 10080 = 7 days)
 
