@@ -1,6 +1,6 @@
 # Langfuse MCP Tool Reference
 
-Complete documentation for all 18 Langfuse MCP tools.
+Complete documentation for all 25 Langfuse MCP tools.
 
 ## Tools by Category
 
@@ -10,12 +10,15 @@ Complete documentation for all 18 Langfuse MCP tools.
 | Observations | fetch_observations, fetch_observation |
 | Sessions | fetch_sessions, get_session_details, get_user_sessions |
 | Exceptions | find_exceptions, find_exceptions_in_file, get_exception_details, get_error_count |
-| Prompts | list_prompts, get_prompt, get_prompt_unresolved, create_text_prompt, create_chat_prompt, update_prompt_labels |
+| Prompts | list_prompts, get_prompt, get_prompt_unresolved, create_text_prompt*, create_chat_prompt*, update_prompt_labels* |
+| Datasets | list_datasets, get_dataset, list_dataset_items, get_dataset_item, create_dataset*, create_dataset_item*, delete_dataset_item* |
 | Schema | get_data_schema |
+
+*\*Tools marked with \* are disabled in read-only mode (`--read-only` or `LANGFUSE_MCP_READ_ONLY=true`).*
 
 ## Output Modes
 
-Most tools support three output modes via the `output_mode` parameter:
+Some tools support output modes via the `output_mode` parameter:
 
 | Mode | Description |
 |------|-------------|
@@ -23,43 +26,36 @@ Most tools support three output modes via the `output_mode` parameter:
 | `full_json_string` | Complete data as JSON string (returns string, not object) |
 | `full_json_file` | Save to file, return summary with path |
 
-**Exceptions:** `find_exceptions` and `get_error_count` do not support `output_mode` (always return compact format).
+**Tools with output_mode:** `fetch_traces`, `fetch_trace`, `fetch_observations`, `fetch_observation`, `fetch_sessions`, `get_session_details`, `get_user_sessions`, `find_exceptions_in_file`, `get_exception_details`, `list_dataset_items`, `get_dataset_item`
+
+**Tools without output_mode:** `find_exceptions`, `get_error_count`, `list_prompts`, `get_prompt`, `get_prompt_unresolved`, `create_text_prompt`, `create_chat_prompt`, `update_prompt_labels`, `list_datasets`, `get_dataset`, `create_dataset`, `create_dataset_item`, `delete_dataset_item`, `get_data_schema`
 
 ## Filter Semantics
 
+Filter behavior depends on the Langfuse API:
+
 | Filter | Matching Rule |
 |--------|---------------|
-| `name` | Case-insensitive substring match |
-| `tags` | Comma-separated, matches ANY tag (OR logic) |
+| `name` | Passed to Langfuse API (behavior varies by endpoint) |
+| `tags` | Comma-separated, passed to Langfuse API |
 | `metadata` | Exact key/value match, top-level keys only |
 | `user_id`, `session_id`, `trace_id` | Exact match |
 
+**Note:** `list_prompts` uses exact name matching. Other tools pass filters to the Langfuse API.
+
 ## Sort Order
 
-All paginated results are sorted by **timestamp descending** (newest first).
+Sort order depends on the Langfuse API. Traces and observations are typically sorted by timestamp descending (newest first).
 
 ## Pagination
 
-Tools that return lists support pagination via `page` and `limit` parameters:
+Some tools support pagination via `page` and `limit` parameters. Check individual tool docs.
 
-- `page`: Page number (starts at 1)
-- `limit`: Items per page (default 50, max varies by tool)
+**Tools with pagination:** `fetch_traces`, `fetch_observations`, `fetch_sessions`, `list_prompts`, `list_datasets`, `list_dataset_items`
 
-**Response metadata includes:**
-```json
-{
-  "metadata": {
-    "page": 1,
-    "total": 147,
-    "next_page": 2,
-    "item_count": 50
-  }
-}
-```
+**Tools without pagination:** `find_exceptions`, `find_exceptions_in_file`, `get_exception_details`, `get_user_sessions`
 
-**Pattern:** If `next_page` exists, call again with `page=next_page` to get more results.
-
-**Tip:** For large datasets, use `output_mode="full_json_file"` to avoid context overflow.
+**Tip:** For large results, use `output_mode="full_json_file"` to avoid context overflow.
 
 ---
 
@@ -73,11 +69,11 @@ Search and filter traces with pagination.
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
 | `age` | int | Yes | - | Look back window in minutes from now (e.g., 1440 for 24h). Max 10080 (7 days). |
-| `name` | string | No | null | Name filter (case-insensitive substring match) |
+| `name` | string | No | null | Name filter (passed to API) |
 | `user_id` | string | No | null | User ID to filter traces by (exact match) |
 | `session_id` | string | No | null | Session ID to filter traces by (exact match) |
 | `metadata` | object | No | null | Metadata fields to filter by (exact key/value match) |
-| `tags` | string | No | null | Tag or comma-separated list of tags (matches any) |
+| `tags` | string | No | null | Tag or comma-separated list of tags |
 | `page` | int | No | 1 | Page number for pagination (starts at 1) |
 | `limit` | int | No | 50 | Maximum traces per page |
 | `include_observations` | bool | No | false | Include full observation objects instead of just IDs |
@@ -123,7 +119,7 @@ Search and filter observations (spans, generations, events).
 |------|------|----------|---------|-------------|
 | `age` | int | Yes | - | Look back window in minutes from now. Max 10080 (7 days). |
 | `type` | string | No | null | Filter by type: "SPAN", "GENERATION", or "EVENT" |
-| `name` | string | No | null | Name filter (case-insensitive substring match) |
+| `name` | string | No | null | Name filter (passed to API) |
 | `user_id` | string | No | null | User ID filter (exact match) |
 | `trace_id` | string | No | null | Trace ID filter (exact match) |
 | `parent_observation_id` | string | No | null | Parent observation ID filter (exact match) |
@@ -180,6 +176,7 @@ Get detailed session info by ID.
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
 | `session_id` | string | Yes | - | The session ID to fetch |
+| `include_observations` | bool | No | false | Include full observation objects instead of just IDs |
 | `output_mode` | string | No | "compact" | Output format |
 
 **Returns:** Session object with all traces.
@@ -195,8 +192,7 @@ Get all sessions for a user.
 |------|------|----------|---------|-------------|
 | `user_id` | string | Yes | - | The user ID to look up |
 | `age` | int | Yes | - | Look back window in minutes from now. Max 10080 (7 days). |
-| `page` | int | No | 1 | Page number |
-| `limit` | int | No | 50 | Max items per page |
+| `include_observations` | bool | No | false | Include full observation objects instead of just IDs |
 | `output_mode` | string | No | "compact" | Output format |
 
 **Returns:** List of sessions for the user.
@@ -273,7 +269,20 @@ Get total error count.
 |------|------|----------|---------|-------------|
 | `age` | int | Yes | - | Look back window in minutes from now. Max 10080 (7 days). |
 
-**Returns:** `{data: {error_count: int}, metadata: {...}}`
+**Returns:**
+```json
+{
+  "data": {
+    "age_minutes": 60,
+    "from_timestamp": "2024-01-15T09:30:00Z",
+    "to_timestamp": "2024-01-15T10:30:00Z",
+    "trace_count": 5,
+    "observation_count": 12,
+    "exception_count": 18
+  },
+  "metadata": {...}
+}
+```
 
 **Note:** Does not support `output_mode` parameter.
 
@@ -328,11 +337,11 @@ get_prompt(name="chat-system", label="production")
 
 Fetch a prompt WITHOUT resolving dependencies.
 
-Returns raw prompt content with dependency tags intact (e.g., `@@@langfusePrompt:name=xxx@@@`).
+Returns raw prompt content with dependency tags intact (e.g., `@@@langfusePrompt:name=xxx@@@`) when the SDK supports `resolve=false`. If the SDK doesn't support this parameter, returns the resolved prompt and sets `metadata.resolved=true` to indicate fallback behavior.
 
 **Parameters:** Same as `get_prompt`.
 
-**Returns:** Same structure but with dependency tags preserved in prompt content.
+**Returns:** Same structure but with dependency tags preserved in prompt content. Check `metadata.resolved` to verify if unresolved content was returned.
 
 ---
 
@@ -439,6 +448,155 @@ update_prompt_labels(name="greeting", version=3, labels=["production"])
 **Example (rollback):**
 ```
 update_prompt_labels(name="greeting", version=2, labels=["production"])
+```
+
+---
+
+## Datasets
+
+### list_datasets
+
+List all datasets with pagination.
+
+**Parameters:**
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `page` | int | No | 1 | Page number |
+| `limit` | int | No | 50 | Max items per page |
+
+**Returns:** List of dataset objects with metadata.
+
+**Example:**
+```
+list_datasets(page=1, limit=20)
+```
+
+---
+
+### get_dataset
+
+Get a dataset by name.
+
+**Parameters:**
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `name` | string | Yes | - | The name of the dataset to fetch |
+
+**Returns:** Dataset object with full details.
+
+**Example:**
+```
+get_dataset(name="evaluation-set-v1")
+```
+
+---
+
+### list_dataset_items
+
+List items in a dataset with optional filters.
+
+**Parameters:**
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `dataset_name` | string | Yes | - | The name of the dataset |
+| `source_trace_id` | string | No | null | Filter by source trace ID |
+| `source_observation_id` | string | No | null | Filter by source observation ID |
+| `page` | int | No | 1 | Page number |
+| `limit` | int | No | 50 | Max items per page |
+| `output_mode` | string | No | "compact" | Output format |
+
+**Returns:** List of dataset items.
+
+**Example:**
+```
+list_dataset_items(dataset_name="evaluation-set-v1", page=1, limit=10)
+```
+
+---
+
+### get_dataset_item
+
+Get a specific dataset item by ID.
+
+**Parameters:**
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `item_id` | string | Yes | - | The ID of the dataset item to fetch |
+| `output_mode` | string | No | "compact" | Output format |
+
+**Returns:** Dataset item object with full details.
+
+**Example:**
+```
+get_dataset_item(item_id="item-abc-123")
+```
+
+---
+
+### create_dataset
+
+Create a new dataset.
+
+**Parameters:**
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `name` | string | Yes | - | The name for the new dataset |
+| `description` | string | No | null | Description of the dataset |
+| `metadata` | object | No | null | Additional metadata |
+
+**Returns:** Created dataset object.
+
+**Example:**
+```
+create_dataset(name="qa-evaluation-set", description="QA test cases for v2.0")
+```
+
+---
+
+### create_dataset_item
+
+Create or upsert a dataset item.
+
+**Parameters:**
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `dataset_name` | string | Yes | - | The name of the dataset |
+| `input` | any | No | null | Input data for the item |
+| `expected_output` | any | No | null | Expected output for evaluation |
+| `metadata` | object | No | null | Additional metadata |
+| `source_trace_id` | string | No | null | Link to source trace |
+| `source_observation_id` | string | No | null | Link to source observation |
+| `item_id` | string | No | null | Item ID (for upsert; if exists, updates the item) |
+| `status` | string | No | null | Item status (e.g., "ACTIVE", "ARCHIVED") |
+
+**Returns:** Created or updated dataset item object.
+
+**Example:**
+```
+create_dataset_item(
+  dataset_name="qa-evaluation-set",
+  input={"question": "What is the capital of France?"},
+  expected_output={"answer": "Paris"},
+  metadata={"category": "geography"}
+)
+```
+
+---
+
+### delete_dataset_item
+
+Delete a dataset item.
+
+**Parameters:**
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `item_id` | string | Yes | - | The ID of the dataset item to delete |
+
+**Returns:** Confirmation of deletion.
+
+**Example:**
+```
+delete_dataset_item(item_id="item-abc-123")
 ```
 
 ---
