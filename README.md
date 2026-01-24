@@ -58,6 +58,19 @@ Restart your CLI, then verify with `/mcp` (Claude Code) or `codex mcp list` (Cod
 | Datasets | `list_datasets`, `get_dataset`, `list_dataset_items`, `get_dataset_item`, `create_dataset`, `create_dataset_item`, `delete_dataset_item` |
 | Schema | `get_data_schema` |
 
+## Dataset Item Updates (Upsert)
+
+Langfuse uses upsert for dataset items. To edit an existing item, call `create_dataset_item` with `item_id`. If the ID exists, it updates; otherwise it creates a new item.
+
+```python
+create_dataset_item(
+  dataset_name="qa-test-cases",
+  item_id="item_123",
+  input={"question": "What is 2+2?"},
+  expected_output={"answer": "4"}
+)
+```
+
 ## Skill
 
 This project includes a skill with debugging playbooks.

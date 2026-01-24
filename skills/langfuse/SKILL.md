@@ -164,6 +164,16 @@ create_dataset_item(
 ```
 → Add test cases.
 
+```
+create_dataset_item(
+  dataset_name="qa-test-cases",
+  item_id="item_123",
+  input={"question": "What is 3+3?"},
+  expected_output={"answer": "6"}
+)
+```
+→ Upsert: updates existing item by id or creates if missing.
+
 ---
 
 ### "Manage prompts"
@@ -207,6 +217,7 @@ update_prompt_labels(name="...", version=N, labels=["production"])
 | List datasets | `list_datasets()` |
 | Get dataset | `get_dataset(name="...")` |
 | List dataset items | `list_dataset_items(dataset_name="...", limit=N)` |
+| Create/update dataset item | `create_dataset_item(dataset_name="...", item_id="...")` |
 
 `age` = minutes to look back (max 10080 = 7 days)
 
