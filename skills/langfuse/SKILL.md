@@ -1,6 +1,6 @@
 ---
 name: langfuse
-version: 1.0.1
+version: 1.0.2
 description: Debug AI traces, find exceptions, analyze sessions, and manage prompts via Langfuse MCP. Also handles MCP setup and configuration.
 metadata:
   short-description: Langfuse observability via MCP
