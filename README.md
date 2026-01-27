@@ -75,14 +75,14 @@ create_dataset_item(
 
 This project includes a skill with debugging playbooks.
 
-**Via [skild.sh](https://skild.sh)** (registry-based):
+**Via [skills](https://github.com/vercel-labs/add-skill)** (recommended):
 ```bash
-npx skild install @avivsinai/langfuse
+npx skills add avivsinai/langfuse-mcp -g -y
 ```
 
-**Via [skills.sh](https://skills.sh)** (GitHub-based):
+**Via [skild](https://skild.sh)**:
 ```bash
-npx skills add avivsinai/langfuse-mcp
+npx skild install @avivsinai/langfuse -t claude -y
 ```
 
 **Manual install:**
