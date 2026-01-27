@@ -30,10 +30,10 @@ Get credentials from [Langfuse Cloud](https://cloud.langfuse.com) â†’ Settings â
 ```bash
 # Claude Code (project-scoped, shared via .mcp.json)
 claude mcp add \
+  -e LANGFUSE_PUBLIC_KEY=pk-... \
+  -e LANGFUSE_SECRET_KEY=sk-... \
+  -e LANGFUSE_HOST=https://cloud.langfuse.com \
   --scope project \
-  --env LANGFUSE_PUBLIC_KEY=pk-... \
-  --env LANGFUSE_SECRET_KEY=sk-... \
-  --env LANGFUSE_HOST=https://cloud.langfuse.com \
   langfuse -- uvx --python 3.11 langfuse-mcp
 
 # Codex CLI (user-scoped, stored in ~/.codex/config.toml)
