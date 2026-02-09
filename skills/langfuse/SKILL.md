@@ -1,6 +1,5 @@
 ---
 name: langfuse
-version: 2.0.0
 description: Debug AI traces, find exceptions, analyze sessions, and manage prompts/datasets via Langfuse. Use when debugging AI, finding exceptions, analyzing traces/sessions, or managing prompts and datasets.
 allowed-tools: Bash, Read
 ---
