@@ -1,36 +1,30 @@
-# Langfuse MCP Setup Reference
+# Langfuse Skill Setup
 
-Detailed setup instructions, troubleshooting, and configuration options.
+## Credentials
 
-## Manual .mcp.json Setup
+Get API keys from https://cloud.langfuse.com → Settings → API Keys.
 
-If you prefer manual configuration over `claude mcp add`:
+Add to `~/.claude/settings.json`:
 
 ```json
 {
-  "mcpServers": {
-    "langfuse": {
-      "command": "uvx",
-      "args": ["--python", "3.11", "langfuse-mcp"],
-      "env": {
-        "LANGFUSE_PUBLIC_KEY": "pk-...",
-        "LANGFUSE_SECRET_KEY": "sk-...",
-        "LANGFUSE_HOST": "https://cloud.langfuse.com"
-      }
-    }
+  "env": {
+    "LANGFUSE_PUBLIC_KEY": "pk-...",
+    "LANGFUSE_SECRET_KEY": "sk-...",
+    "LANGFUSE_HOST": "https://cloud.langfuse.com"
   }
 }
 ```
 
-**Important:** If `.mcp.json` already exists, merge the `langfuse` entry into the existing `mcpServers` object. Don't overwrite the file.
+Self-hosted: use your instance URL for `LANGFUSE_HOST`.
 
-### Add to .gitignore
+Scripts check environment variables first (auto-populated from settings.json by Claude Code), then read settings.json directly as fallback.
+
+## Test
 
 ```bash
-grep -q '.mcp.json' .gitignore 2>/dev/null || echo '.mcp.json' >> .gitignore
+python3 skills/langfuse/scripts/traces.py fetch --age 60
 ```
-
-Never commit credentials to version control.
 
 ---
 
@@ -42,50 +36,17 @@ Never commit credentials to version control.
 - Secret key must start with `sk-`
 - Host must match your Langfuse instance (cloud vs self-hosted)
 
-### Python Version Errors
-
-If MCP fails to connect, check your Python version. The Langfuse SDK requires Python 3.13 or earlier (due to Pydantic v1 dependency).
-
-Fix by pinning Python in the uvx command:
-```bash
-uvx --python 3.11 langfuse-mcp
-```
-
-Or verify manually:
-```bash
-uvx --python 3.11 langfuse-mcp --help
-```
-
-### Timeout Errors
-
-Increase the timeout:
-
-```bash
-# Claude Code with timeout
-claude mcp add \
-  --scope project \
-  --env LANGFUSE_PUBLIC_KEY=pk-... \
-  --env LANGFUSE_SECRET_KEY=sk-... \
-  --env LANGFUSE_HOST=https://cloud.langfuse.com \
-  langfuse -- uvx --python 3.11 langfuse-mcp --timeout 60
-
-# Or in .mcp.json
-"args": ["--python", "3.11", "langfuse-mcp", "--timeout", "60"]
-```
-
 ### Empty Results
 
-- Check `age` parameter (minutes, not hours/days)
+- Check `--age` parameter (minutes, not hours/days)
 - Verify filters match your data
-- Try `fetch_traces(age=1440)` with no filters to confirm data exists
+- Try `traces.py fetch --age 1440` with no filters to confirm data exists
 - Data older than 7 days (10080 minutes) cannot be retrieved
 
-### MCP Not Found
+### Connection Errors
 
-- Restart Claude Code / Codex CLI after adding MCP
-- Run `/mcp` (Claude) or `codex mcp list` (Codex) to verify
-- Check `.mcp.json` syntax (valid JSON, correct paths)
-- Codex CLI uses `~/.codex/config.toml` for config; verify that file instead of `.mcp.json`
+- Verify `LANGFUSE_HOST` is correct and reachable
+- Check firewall/VPN if self-hosted
 
 ---
 
@@ -116,57 +77,8 @@ claude mcp add \
 
 ---
 
-## Tool Groups
-
-Load specific tool groups to reduce token overhead:
-
-```bash
-langfuse-mcp --tools traces,prompts
-```
-
-| Group | Tools |
-|-------|-------|
-| `traces` | fetch_traces, fetch_trace |
-| `observations` | fetch_observations, fetch_observation |
-| `sessions` | fetch_sessions, get_session_details, get_user_sessions |
-| `exceptions` | find_exceptions, find_exceptions_in_file, get_exception_details, get_error_count |
-| `prompts` | list_prompts, get_prompt, get_prompt_unresolved, create_text_prompt, create_chat_prompt, update_prompt_labels |
-| `schema` | get_data_schema |
-
----
-
-## Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `LANGFUSE_PUBLIC_KEY` | API public key (starts with `pk-`) |
-| `LANGFUSE_SECRET_KEY` | API secret key (starts with `sk-`) |
-| `LANGFUSE_HOST` | Langfuse instance URL |
-| `LANGFUSE_TIMEOUT` | API timeout in seconds (default: 30) |
-| `LANGFUSE_MCP_TOOLS` | Comma-separated tool groups to load |
-| `LANGFUSE_MCP_LOG_FILE` | Log file path (default: `/tmp/langfuse_mcp.log`) |
-| `LANGFUSE_MCP_READ_ONLY` | Set to `true` to disable write tools (safer observability mode) |
-
----
-
-## Skill Installation Scopes
-
-| Scope | Claude Code | Codex CLI |
-|-------|-------------|-----------|
-| Project | `.claude/skills/langfuse/` | `.codex/skills/langfuse/` |
-| User/Global | `~/.claude/skills/langfuse/` | `~/.codex/skills/langfuse/` |
-
-Install globally:
-```bash
-cp -r skills/langfuse ~/.claude/skills/   # Claude Code
-cp -r skills/langfuse ~/.codex/skills/    # Codex CLI
-```
-
----
-
 ## Security Notes
 
-- Never commit `.mcp.json` with real credentials
+- Never commit credentials to version control
 - Rotate keys if leaked
-- `full_json_file` exports may contain sensitive user data
 - Use environment variable injection in CI/CD rather than hardcoded values

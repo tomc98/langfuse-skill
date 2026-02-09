@@ -17,9 +17,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Check skill sync
-      run: make check-skills
-
     - name: Install uv
       uses: astral-sh/setup-uv@v3
 
@@ -27,15 +24,15 @@ jobs:
       run: |
         uv venv --python ${{ matrix.python-version }}
         source .venv/bin/activate
-        uv pip install -e ".[dev]"
+        uv pip install pytest ruff
 
     - name: Run tests
       run: |
         source .venv/bin/activate
-        pytest -v --tb=short
+        pytest tests/ -v --tb=short
 
     - name: Run linting
       run: |
         source .venv/bin/activate
-        ruff check .
-        ruff format --check .
+        ruff check skills/ tests/
+        ruff format --check skills/ tests/

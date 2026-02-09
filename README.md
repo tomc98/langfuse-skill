@@ -1,88 +1,79 @@
-# Langfuse MCP Server
+# Langfuse Skill
 
-[![PyPI](https://badge.fury.io/py/langfuse-mcp.svg)](https://badge.fury.io/py/langfuse-mcp)
-[![Python 3.10–3.13](https://img.shields.io/badge/python-3.10–3.13-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[Model Context Protocol](https://modelcontextprotocol.io) server for [Langfuse](https://langfuse.com) observability. Query traces, debug errors, analyze sessions, manage prompts.
+Stateless Python scripts for [Langfuse](https://langfuse.com) observability. Query traces, debug errors, analyze sessions, manage prompts and datasets — no external dependencies.
 
-## Why langfuse-mcp?
+## Why this skill?
 
-Comparison with [official Langfuse MCP](https://github.com/langfuse/mcp-server-langfuse) (as of Jan 2026):
-
-| | langfuse-mcp | Official |
-|-|--------------|----------|
-| **Traces & Observations** | Yes | No |
-| **Sessions & Users** | Yes | No |
-| **Exception Tracking** | Yes | No |
-| **Prompt Management** | Yes | Yes |
-| **Dataset Management** | Yes | No |
-| **Selective Tool Loading** | Yes | No |
-
-This project provides a **full observability toolkit** — traces, observations, sessions, exceptions, and prompts — while the official MCP focuses on prompt management.
+- **Zero dependencies** — stdlib only (urllib, json, argparse). No SDK version conflicts, no Python version restrictions.
+- **Stateless** — each invocation is independent. No persistent processes, no caches to invalidate.
+- **Full observability** — traces, observations, sessions, exceptions, prompts, datasets, and schema.
 
 ## Quick Start
 
-Requires [uv](https://docs.astral.sh/uv/getting-started/installation/) (for `uvx`).
+**1. Get credentials** from [Langfuse Cloud](https://cloud.langfuse.com) → Settings → API Keys.
 
-Get credentials from [Langfuse Cloud](https://cloud.langfuse.com) → Settings → API Keys. If self-hosted, use your instance URL for `LANGFUSE_HOST`.
+**2. Add to `~/.claude/settings.json`:**
+
+```json
+{
+  "env": {
+    "LANGFUSE_PUBLIC_KEY": "pk-...",
+    "LANGFUSE_SECRET_KEY": "sk-...",
+    "LANGFUSE_HOST": "https://cloud.langfuse.com"
+  }
+}
+```
+
+**3. Test:**
 
 ```bash
-# Claude Code (project-scoped, shared via .mcp.json)
-claude mcp add \
-  -e LANGFUSE_PUBLIC_KEY=pk-... \
-  -e LANGFUSE_SECRET_KEY=sk-... \
-  -e LANGFUSE_HOST=https://cloud.langfuse.com \
-  --scope project \
-  langfuse -- uvx --python 3.11 langfuse-mcp
-
-# Codex CLI (user-scoped, stored in ~/.codex/config.toml)
-codex mcp add langfuse \
-  --env LANGFUSE_PUBLIC_KEY=pk-... \
-  --env LANGFUSE_SECRET_KEY=sk-... \
-  --env LANGFUSE_HOST=https://cloud.langfuse.com \
-  -- uvx --python 3.11 langfuse-mcp
+python3 skills/langfuse/scripts/traces.py fetch --age 60
 ```
 
-Restart your CLI, then verify with `/mcp` (Claude Code) or `codex mcp list` (Codex).
+## Scripts
 
-## Tools (25 total)
+| Script | Commands | Description |
+|--------|----------|-------------|
+| `traces.py` | fetch, get | Search and retrieve traces |
+| `observations.py` | fetch, get | Search and retrieve observations |
+| `sessions.py` | fetch, details, user | Session listing and details |
+| `exceptions.py` | find, file, details, count | Exception analysis |
+| `prompts.py` | list, get, get-unresolved, create-text, create-chat, update-labels | Prompt management |
+| `datasets.py` | list, get, list-items, get-item, create, create-item, delete-item | Dataset management |
+| `schema.py` | *(none)* | Data schema reference |
 
-| Category | Tools |
-|----------|-------|
-| Traces | `fetch_traces`, `fetch_trace` |
-| Observations | `fetch_observations`, `fetch_observation` |
-| Sessions | `fetch_sessions`, `get_session_details`, `get_user_sessions` |
-| Exceptions | `find_exceptions`, `find_exceptions_in_file`, `get_exception_details`, `get_error_count` |
-| Prompts | `list_prompts`, `get_prompt`, `get_prompt_unresolved`, `create_text_prompt`, `create_chat_prompt`, `update_prompt_labels` |
-| Datasets | `list_datasets`, `get_dataset`, `list_dataset_items`, `get_dataset_item`, `create_dataset`, `create_dataset_item`, `delete_dataset_item` |
-| Schema | `get_data_schema` |
+All scripts are in `skills/langfuse/scripts/`. Run with:
 
-## Dataset Item Updates (Upsert)
-
-Langfuse uses upsert for dataset items. To edit an existing item, call `create_dataset_item` with `item_id`. If the ID exists, it updates; otherwise it creates a new item.
-
-```python
-create_dataset_item(
-  dataset_name="qa-test-cases",
-  item_id="item_123",
-  input={"question": "What is 2+2?"},
-  expected_output={"answer": "4"}
-)
+```bash
+python3 skills/langfuse/scripts/<script>.py <command> [args]
 ```
 
-## Skill
+## Examples
 
-This project includes a skill with debugging playbooks.
+```bash
+# Find recent traces
+python3 skills/langfuse/scripts/traces.py fetch --age 60
+
+# Find exceptions by file
+python3 skills/langfuse/scripts/exceptions.py find --age 1440 --group-by file
+
+# Get a prompt
+python3 skills/langfuse/scripts/prompts.py get my-prompt --label production
+
+# Create a dataset item
+python3 skills/langfuse/scripts/datasets.py create-item my-dataset \
+  --input '{"question": "What is 2+2?"}' \
+  --expected-output '{"answer": "4"}'
+```
+
+## Skill Installation
 
 **Via [skills](https://github.com/vercel-labs/add-skill)** (recommended):
 ```bash
 npx skills add avivsinai/langfuse-mcp -g -y
-```
-
-**Via [skild](https://skild.sh)**:
-```bash
-npx skild install @avivsinai/langfuse -t claude -y
 ```
 
 **Manual install:**
@@ -95,66 +86,15 @@ Try asking: "help me debug langfuse traces"
 
 See [`skills/langfuse/SKILL.md`](skills/langfuse/SKILL.md) for full documentation.
 
-## Selective Tool Loading
-
-Load only the tool groups you need to reduce token overhead:
-
-```bash
-langfuse-mcp --tools traces,prompts
-```
-
-Available groups: `traces`, `observations`, `sessions`, `exceptions`, `prompts`, `datasets`, `schema`
-
-## Read-Only Mode
-
-Disable all write operations for safer read-only access:
-
-```bash
-langfuse-mcp --read-only
-# Or via environment variable
-LANGFUSE_MCP_READ_ONLY=true langfuse-mcp
-```
-
-This disables: `create_text_prompt`, `create_chat_prompt`, `update_prompt_labels`, `create_dataset`, `create_dataset_item`, `delete_dataset_item`
-
-## Other Clients
-
-### Cursor
-
-Create `.cursor/mcp.json` in your project (or `~/.cursor/mcp.json` for global):
-
-```json
-{
-  "mcpServers": {
-    "langfuse": {
-      "command": "uvx",
-      "args": ["--python", "3.11", "langfuse-mcp"],
-      "env": {
-        "LANGFUSE_PUBLIC_KEY": "pk-...",
-        "LANGFUSE_SECRET_KEY": "sk-...",
-        "LANGFUSE_HOST": "https://cloud.langfuse.com"
-      }
-    }
-  }
-}
-```
-
-### Docker
-
-```bash
-docker run --rm -i \
-  -e LANGFUSE_PUBLIC_KEY=pk-... \
-  -e LANGFUSE_SECRET_KEY=sk-... \
-  -e LANGFUSE_HOST=https://cloud.langfuse.com \
-  ghcr.io/avivsinai/langfuse-mcp:latest
-```
-
 ## Development
 
 ```bash
-uv venv --python 3.11 .venv && source .venv/bin/activate
-uv pip install -e ".[dev]"
-pytest
+# Tests
+python3 -m pytest tests/
+
+# Lint
+ruff check skills/ tests/
+ruff format skills/ tests/
 ```
 
 ## License

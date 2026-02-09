@@ -1,10 +1,8 @@
 ---
 name: langfuse
-version: 1.0.2
-description: Debug AI traces, find exceptions, analyze sessions, and manage prompts via Langfuse MCP. Also handles MCP setup and configuration.
-metadata:
-  short-description: Langfuse observability via MCP
-  compatibility: claude-code, codex-cli
+version: 2.0.0
+description: Debug AI traces, find exceptions, analyze sessions, and manage prompts/datasets via Langfuse. Use when debugging AI, finding exceptions, analyzing traces/sessions, or managing prompts and datasets.
+allowed-tools: Bash, Read
 ---
 
 # Langfuse Skill
@@ -19,44 +17,21 @@ Debug your AI systems through Langfuse observability.
 
 If self-hosted, use your instance URL for `LANGFUSE_HOST` and create keys there.
 
-**Step 2:** Install MCP (pick one):
+**Step 2:** Add credentials to `~/.claude/settings.json`:
 
-```bash
-# Claude Code (project-scoped, shared via .mcp.json)
-claude mcp add \
-  --scope project \
-  --env LANGFUSE_PUBLIC_KEY=pk-... \
-  --env LANGFUSE_SECRET_KEY=sk-... \
-  --env LANGFUSE_HOST=https://cloud.langfuse.com \
-  langfuse -- uvx --python 3.11 langfuse-mcp
-
-# Codex CLI (user-scoped, stored in ~/.codex/config.toml)
-codex mcp add langfuse \
-  --env LANGFUSE_PUBLIC_KEY=pk-... \
-  --env LANGFUSE_SECRET_KEY=sk-... \
-  --env LANGFUSE_HOST=https://cloud.langfuse.com \
-  -- uvx --python 3.11 langfuse-mcp
+```json
+{
+  "env": {
+    "LANGFUSE_PUBLIC_KEY": "pk-...",
+    "LANGFUSE_SECRET_KEY": "sk-...",
+    "LANGFUSE_HOST": "https://cloud.langfuse.com"
+  }
+}
 ```
 
-**Step 3:** Restart CLI, verify with `/mcp` (Claude) or `codex mcp list` (Codex)
+**Step 3:** Test: `python3 skills/langfuse/scripts/traces.py fetch --age 60`
 
-**Step 4:** Test: `fetch_traces(age=60)`
-
-### Read-Only Mode
-
-For safer observability without risk of modifying prompts or datasets, enable read-only mode:
-
-```bash
-# CLI flag
-langfuse-mcp --read-only
-
-# Or environment variable
-LANGFUSE_MCP_READ_ONLY=true
-```
-
-This disables write tools: `create_text_prompt`, `create_chat_prompt`, `update_prompt_labels`, `create_dataset`, `create_dataset_item`, `delete_dataset_item`.
-
-For manual `.mcp.json` setup or troubleshooting, see `references/setup.md`.
+For manual setup details, see `references/setup.md`.
 
 ---
 
@@ -64,18 +39,18 @@ For manual `.mcp.json` setup or troubleshooting, see `references/setup.md`.
 
 ### "Where are the errors?"
 
-```
-find_exceptions(age=1440, group_by="file")
+```bash
+python3 skills/langfuse/scripts/exceptions.py find --age 1440 --group-by file
 ```
 → Shows error counts by file. Pick the worst offender.
 
-```
-find_exceptions_in_file(filepath="src/ai/chat.py", age=1440)
+```bash
+python3 skills/langfuse/scripts/exceptions.py file src/ai/chat.py --age 1440
 ```
 → Lists specific exceptions. Grab a trace_id.
 
-```
-get_exception_details(trace_id="...")
+```bash
+python3 skills/langfuse/scripts/exceptions.py details <trace_id>
 ```
 → Full stacktrace and context.
 
@@ -83,23 +58,23 @@ get_exception_details(trace_id="...")
 
 ### "What happened in this interaction?"
 
-```
-fetch_traces(age=60, user_id="...")
+```bash
+python3 skills/langfuse/scripts/traces.py fetch --age 60 --user-id "user_123"
 ```
 → Find the trace. Note the trace_id.
 
-If you don't know the user_id, start with:
+```bash
+python3 skills/langfuse/scripts/traces.py get <trace_id>
 ```
-fetch_traces(age=60)
-```
+→ See all details for the trace.
 
+```bash
+python3 skills/langfuse/scripts/observations.py fetch --age 60 --trace-id <trace_id>
 ```
-fetch_trace(trace_id="...", include_observations=true)
-```
-→ See all LLM calls in the trace.
+→ See all observations in the trace.
 
-```
-fetch_observation(observation_id="...")
+```bash
+python3 skills/langfuse/scripts/observations.py get <observation_id>
 ```
 → Inspect a specific generation's input/output.
 
@@ -107,13 +82,13 @@ fetch_observation(observation_id="...")
 
 ### "Why is it slow?"
 
-```
-fetch_observations(age=60, type="GENERATION")
+```bash
+python3 skills/langfuse/scripts/observations.py fetch --age 60 --type GENERATION
 ```
 → Find recent LLM calls. Look for high latency.
 
-```
-fetch_observation(observation_id="...")
+```bash
+python3 skills/langfuse/scripts/observations.py get <observation_id>
 ```
 → Check token counts, model, timing.
 
@@ -121,13 +96,13 @@ fetch_observation(observation_id="...")
 
 ### "What's this user experiencing?"
 
-```
-get_user_sessions(user_id="...", age=1440)
+```bash
+python3 skills/langfuse/scripts/sessions.py user <user_id> --age 1440
 ```
 → List their sessions.
 
-```
-get_session_details(session_id="...")
+```bash
+python3 skills/langfuse/scripts/sessions.py details <session_id>
 ```
 → See all traces in the session.
 
@@ -135,42 +110,38 @@ get_session_details(session_id="...")
 
 ### "Manage datasets"
 
-```
-list_datasets()
+```bash
+python3 skills/langfuse/scripts/datasets.py list
 ```
 → See all datasets.
 
-```
-get_dataset(name="evaluation-set-v1")
+```bash
+python3 skills/langfuse/scripts/datasets.py get evaluation-set-v1
 ```
 → Get dataset details.
 
+```bash
+python3 skills/langfuse/scripts/datasets.py list-items evaluation-set-v1 --limit 10
 ```
-list_dataset_items(dataset_name="evaluation-set-v1", page=1, limit=10)
-```
-→ Browse items in the dataset.
+→ Browse items.
 
-```
-create_dataset(name="qa-test-cases", description="QA evaluation set")
+```bash
+python3 skills/langfuse/scripts/datasets.py create qa-test-cases --description "QA evaluation set"
 ```
 → Create a new dataset.
 
-```
-create_dataset_item(
-  dataset_name="qa-test-cases",
-  input={"question": "What is 2+2?"},
-  expected_output={"answer": "4"}
-)
+```bash
+python3 skills/langfuse/scripts/datasets.py create-item qa-test-cases \
+  --input '{"question": "What is 2+2?"}' \
+  --expected-output '{"answer": "4"}'
 ```
 → Add test cases.
 
-```
-create_dataset_item(
-  dataset_name="qa-test-cases",
-  item_id="item_123",
-  input={"question": "What is 3+3?"},
-  expected_output={"answer": "6"}
-)
+```bash
+python3 skills/langfuse/scripts/datasets.py create-item qa-test-cases \
+  --item-id item_123 \
+  --input '{"question": "What is 3+3?"}' \
+  --expected-output '{"answer": "6"}'
 ```
 → Upsert: updates existing item by id or creates if missing.
 
@@ -178,23 +149,23 @@ create_dataset_item(
 
 ### "Manage prompts"
 
-```
-list_prompts()
+```bash
+python3 skills/langfuse/scripts/prompts.py list
 ```
 → See all prompts with labels.
 
-```
-get_prompt(name="...", label="production")
+```bash
+python3 skills/langfuse/scripts/prompts.py get my-prompt --label production
 ```
 → Fetch current production version.
 
-```
-create_text_prompt(name="...", prompt="...", labels=["staging"])
+```bash
+python3 skills/langfuse/scripts/prompts.py create-text my-prompt --prompt "Hello {{name}}" --labels staging
 ```
 → Create new version in staging.
 
-```
-update_prompt_labels(name="...", version=N, labels=["production"])
+```bash
+python3 skills/langfuse/scripts/prompts.py update-labels my-prompt --version 3 --labels production
 ```
 → Promote to production. (Rollback = re-apply label to older version)
 
@@ -202,28 +173,31 @@ update_prompt_labels(name="...", version=N, labels=["production"])
 
 ## Quick Reference
 
-| Task | Tool |
-|------|------|
-| List traces | `fetch_traces(age=N)` |
-| Get trace details | `fetch_trace(trace_id="...", include_observations=true)` |
-| List LLM calls | `fetch_observations(age=N, type="GENERATION")` |
-| Get observation | `fetch_observation(observation_id="...")` |
-| Error count | `get_error_count(age=N)` |
-| Find exceptions | `find_exceptions(age=N, group_by="file")` |
-| List sessions | `fetch_sessions(age=N)` |
-| User sessions | `get_user_sessions(user_id="...", age=N)` |
-| List prompts | `list_prompts()` |
-| Get prompt | `get_prompt(name="...", label="production")` |
-| List datasets | `list_datasets()` |
-| Get dataset | `get_dataset(name="...")` |
-| List dataset items | `list_dataset_items(dataset_name="...", limit=N)` |
-| Create/update dataset item | `create_dataset_item(dataset_name="...", item_id="...")` |
+| Task | Command |
+|------|---------|
+| List traces | `traces.py fetch --age 60` |
+| Get trace | `traces.py get <id>` |
+| List LLM calls | `observations.py fetch --age 60 --type GENERATION` |
+| Get observation | `observations.py get <id>` |
+| Error count | `exceptions.py count --age 60` |
+| Find exceptions | `exceptions.py find --age 1440 --group-by file` |
+| List sessions | `sessions.py fetch --age 1440` |
+| User sessions | `sessions.py user <user_id> --age 1440` |
+| List prompts | `prompts.py list` |
+| Get prompt | `prompts.py get <name> --label production` |
+| List datasets | `datasets.py list` |
+| Get dataset | `datasets.py get <name>` |
+| Dataset items | `datasets.py list-items <name> --limit 10` |
+| Create dataset item | `datasets.py create-item <name> --input '...'` |
+| Schema reference | `schema.py` |
 
-`age` = minutes to look back (max 10080 = 7 days)
+All scripts are at `skills/langfuse/scripts/`. Prefix with `python3 skills/langfuse/scripts/`.
+
+`--age` = minutes to look back (max 10080 = 7 days). `--no-truncate` = full output.
 
 ---
 
 ## References
 
-- `references/tool-reference.md` — Full parameter docs, filter semantics, response schemas
-- `references/setup.md` — Manual setup, troubleshooting, advanced configuration
+- `references/tool-reference.md` — Full parameter docs, response schemas
+- `references/setup.md` — Credentials setup, troubleshooting
